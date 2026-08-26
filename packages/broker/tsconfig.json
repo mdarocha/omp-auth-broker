@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "types": ["bun"],
+    "lib": ["esnext", "dom"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "esnext",
+    "strict": true,
+    "skipLibCheck": true,
+    "composite": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts"]
+}

@@ -2,14 +2,15 @@
   "name": "omp-auth-broker",
   "private": true,
   "type": "module",
-  "module": "src/main.ts",
-  "dependencies": {
-    "@oh-my-pi/pi-ai": "^18.0.5",
-    "@oh-my-pi/pi-utils": "^18.0.5",
-    "preact": "^10.24.0",
-    "htm": "^3.1.1"
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "bun --cwd packages/broker ./src/main.ts serve",
+    "check": "bun x tsc --noEmit --project packages/broker/tsconfig.json && bun x tsc --noEmit --project packages/ui/tsconfig.json",
+    "build-ui": "bun build packages/ui/index.html --outdir packages/ui/dist",
+    "build": "bun build packages/broker/src/main.ts --compile --minify --outfile omp-auth-broker"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "typescript": "^5.7.3"
   }
 }

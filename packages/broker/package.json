@@ -2,6 +2,10 @@
   "name": "@omp-auth-broker/broker",
   "private": true,
   "type": "module",
+  "scripts": {
+    "lint": "oxlint --config oxlint.config.ts .",
+    "lint:fix": "oxlint --config oxlint.config.ts --fix ."
+  },
   "bin": {
     "omp-auth-broker": "./src/main.ts"
   },

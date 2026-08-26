@@ -2,15 +2,22 @@
   "name": "omp-auth-broker",
   "private": true,
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "bun --cwd packages/broker ./src/main.ts serve",
     "check": "bun x tsc --noEmit --project packages/broker/tsconfig.json && bun x tsc --noEmit --project packages/ui/tsconfig.json",
     "build-ui": "bun build packages/ui/index.html --outdir packages/ui/dist",
-    "build": "bun build packages/broker/src/main.ts --compile --minify --outfile omp-auth-broker"
+    "build": "bun build packages/broker/src/main.ts --compile --minify --outfile omp-auth-broker",
+    "format": "prettier --write .",
+    "lint": "bun run --filter '*' lint"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "prettier": "3.9.6",
+    "oxlint": "1.78.0",
+    "oxlint-tsgolint": "7.0.2001"
   }
 }

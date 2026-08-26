@@ -1,0 +1,9 @@
+endOfLine: lf
+tabWidth: 4
+useTabs: false
+printWidth: 120
+
+overrides:
+  - files: ["*.yml", "*.yaml", "*.json", "*.jsonc"]
+    options:
+      tabWidth: 2

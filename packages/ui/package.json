@@ -7,6 +7,8 @@
     "preact": "^10.24.0"
   },
   "scripts": {
-    "check": "tsc --noEmit --project tsconfig.json"
+    "check": "tsc --noEmit --project tsconfig.json",
+    "lint": "oxlint --config oxlint.config.ts .",
+    "lint:fix": "oxlint --config oxlint.config.ts --fix ."
   }
 }

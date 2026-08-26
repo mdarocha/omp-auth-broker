@@ -39,11 +39,11 @@
             '';
             installPhase = ''
               mkdir -p $out
-              cp -R node_modules $out/
+              find . -type d -name node_modules -exec cp --parents -R {} $out/ \;
             '';
             outputHashMode = "recursive";
             outputHashAlgo = "sha256";
-            outputHash = pkgs.lib.fakeHash;
+            outputHash = "sha256-vFhXuz9WH1OvYkDD5pXOo0L+2UfHgJK9vp3jYB/Hy8s=";
           };
         in
         {
@@ -55,16 +55,18 @@
             pname = "omp-auth-broker";
             version = "0.1.0";
             src = ./.;
-            nativeBuildInputs =
-              [ pkgs.bun ] ++ pkgs.lib.optional pkgs.stdenv.isLinux pkgs.autoPatchelfHook;
+            nativeBuildInputs = [ pkgs.bun ];
+            dontStrip = true;
+            dontPatchELF = true;
             buildPhase = ''
               export HOME=$TMPDIR
-              cp -R ${nodeModules}/node_modules ./node_modules
+              cp -R ${nodeModules}/. ./
               bun build ./packages/broker/src/main.ts --compile --minify --outfile omp-auth-broker
             '';
             installPhase = ''
               mkdir -p $out/bin
               cp omp-auth-broker $out/bin/
+              find node_modules -name 'pi_natives.*.node' -not -path '*/.old_modules-*' -exec cp {} $out/bin/ \;
             '';
             meta.mainProgram = "omp-auth-broker";
           };

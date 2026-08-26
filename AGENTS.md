@@ -30,9 +30,9 @@ bun run dev -- --bind=127.0.0.1:8765
 
 # Print a compatibility token for clients that insist on one.
 # The server does not validate this token.
-bun --cwd packages/broker run src/main.ts token
-bun --cwd packages/broker run src/main.ts token --regenerate
-bun --cwd packages/broker run src/main.ts token --json
+bun --cwd packages/broker ./src/main.ts token
+bun --cwd packages/broker ./src/main.ts token --regenerate
+bun --cwd packages/broker ./src/main.ts token --json
 
 # Type-check workspaces and build local artifacts
 bun run check
@@ -44,7 +44,11 @@ nix build
 ./result/bin/omp-auth-broker serve --bind=127.0.0.1:8765
 ```
 
-The fixed-output `nodeModules` derivation begins with `pkgs.lib.fakeHash`. On the first `nix build`, replace `outputHash` in `flake.nix` with Nix's reported hash, then build again.
+The fixed-output `nodeModules` derivation begins with `pkgs.lib.fakeHash`. On the first `nix build`, replace `outputHash` in `flake.nix` with Nix's reported hash, then build again. Its `installPhase` copies every `node_modules` directory the workspace install produces (root and per-package), not just the root one — Bun installs workspace-scoped dependencies (`@oh-my-pi/*`) under each package's own `node_modules`, not hoisted to root.
+
+`packages.default` sets `dontStrip` and `dontPatchELF`. Nix's default fixup phase runs `strip` and `patchelf --shrink-rpath` on every ELF in `$out/bin`, and both truncate the binary's appended Bun standalone-executable data segment (`bun build --compile` appends the bundle after the base `bun` runtime, not inside a normal ELF section), leaving a binary that behaves like plain `bun` instead of `omp-auth-broker`.
+
+`installPhase` also copies `pi_natives.*.node` next to the compiled binary. `@oh-my-pi/pi-natives`'s loader resolves the native addon from `node_modules` only in non-compiled Bun processes; a `bun build --compile` binary is detected via `import.meta.url` and only searches `~/.omp/natives/<version>/` and the directory containing `process.execPath`. Shipping both CPU variants (`modern`/`baseline`) next to the binary satisfies the latter without depending on a pre-populated `~/.omp/natives` cache on the host.
 
 ## Verification
 

@@ -19,31 +19,30 @@
   };
 
   outputs =
-    inputs@{ flake-parts, ... }:
+    inputs@{ self, flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [ inputs.devenv.flakeModule ];
       systems = inputs.nixpkgs.lib.systems.flakeExposed;
 
+      flake.nixosModules.default = import ./nix/module.nix { inherit self; };
+
       perSystem =
         { pkgs, ... }:
         let
-          nodeModules = pkgs.stdenv.mkDerivation {
-            pname = "omp-auth-broker-node-modules";
-            version = "0.1.0";
-            src = ./.;
+          packageLockFile = pkgs.runCommand "omp-auth-broker-package-lock.json" {
             nativeBuildInputs = [ pkgs.bun ];
-            dontConfigure = true;
-            buildPhase = ''
-              export HOME=$TMPDIR
-              bun install --frozen-lockfile --no-progress
-            '';
-            installPhase = ''
-              mkdir -p $out
-              find . -type d -name node_modules -exec cp --parents -R {} $out/ \;
-            '';
-            outputHashMode = "recursive";
-            outputHashAlgo = "sha256";
-            outputHash = "sha256-vFhXuz9WH1OvYkDD5pXOo0L+2UfHgJK9vp3jYB/Hy8s=";
+          } ''
+            bun ${./nix/bun-lock-to-package-lock.ts} ${./bun.lock} ${./.} > $out
+          '';
+          packageLock = builtins.fromJSON (builtins.readFile packageLockFile);
+          package = packageLock.packages."";
+          nodeModules = pkgs.importNpmLock.buildNodeModules {
+            inherit package packageLock;
+            nodejs = pkgs.nodejs;
+            derivationArgs = {
+              pname = "omp-auth-broker-node-modules";
+              version = "0.1.0";
+            };
           };
         in
         {
@@ -60,7 +59,8 @@
             dontPatchELF = true;
             buildPhase = ''
               export HOME=$TMPDIR
-              cp -R ${nodeModules}/. ./
+              mkdir node_modules
+              cp -R ${nodeModules}/node_modules/. node_modules/
               bun build ./packages/broker/src/main.ts --compile --minify --outfile omp-auth-broker
             '';
             installPhase = ''

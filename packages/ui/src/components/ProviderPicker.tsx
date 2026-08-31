@@ -1,58 +1,46 @@
-import { h } from "preact";
-import htm from "htm";
-import type { AsyncState, Provider } from "../app";
+import { AsyncSection } from "./AsyncSection";
+import { useLogin } from "../state/LoginContext";
+import { useVault } from "../state/VaultContext";
 
-const html = htm.bind(h);
+export function ProviderPicker() {
+    const { providers, reloadProviders } = useVault();
+    const { beginLogin } = useLogin();
 
-export type ProviderPickerProps = {
-    providers: AsyncState<Provider[]>;
-    loginBusy: string | null;
-    onRetry: () => void;
-    onSelect: (provider: Provider) => void;
-};
-
-export function ProviderPicker({ providers, loginBusy, onRetry, onSelect }: ProviderPickerProps) {
-    return html`
-        <div class="provider-picker" id="provider-picker">
-            <div class="provider-picker__head">
+    return (
+        <div className="provider-picker" id="provider-picker">
+            <div className="provider-picker__head">
                 <h3>Choose a provider</h3>
                 <p>Start its authorization flow in this browser.</p>
             </div>
-            ${providers.phase === "loading" && html`<p class="notice" role="status">Loading providers…</p>`}
-            ${
-                providers.phase === "error" &&
-                html`
-                    <p class="notice notice--error" role="alert">
-                        Providers could not be loaded: ${providers.message}
-                        <button class="text-button" type="button" onClick=${onRetry}>Try again</button>
+            <AsyncSection
+                state={providers}
+                loading={<output className="notice">Loading providers…</output>}
+                error={
+                    <p className="notice notice--error" role="alert">
+                        Providers could not be loaded: {providers.phase === "error" ? providers.message : ""}
+                        <button className="text-button" type="button" onClick={reloadProviders}>
+                            Try again
+                        </button>
                     </p>
-                `
-            }
-            ${providers.phase === "ready" && providers.data.length === 0 && html`<p class="notice" role="status">No login providers are available.</p>`}
-            ${
-                providers.phase === "ready" &&
-                providers.data.length > 0 &&
-                html`
-                    <ul class="provider-list">
-                        ${providers.data.map(
-                            (provider) => html`
-                                <li key=${provider.id}>
-                                    <button
-                                        type="button"
-                                        onClick=${() => onSelect(provider)}
-                                        disabled=${loginBusy !== null}
-                                    >
-                                        <span>${provider.name}</span>
-                                        <span class="provider-list__meta"
-                                            >${loginBusy === provider.id ? "Starting…" : provider.pasteCode ? "Paste code" : provider.id}</span
-                                        >
-                                    </button>
-                                </li>
-                            `,
-                        )}
+                }
+                empty={(data) => data.length === 0}
+                emptyContent={<output className="notice">No login providers are available.</output>}
+            >
+                {(data) => (
+                    <ul className="provider-list">
+                        {data.map((provider) => (
+                            <li key={provider.id}>
+                                <button type="button" onClick={() => void beginLogin(provider)}>
+                                    <span>{provider.name}</span>
+                                    <span className="provider-list__meta">
+                                        {provider.pasteCode ? "Paste code" : provider.id}
+                                    </span>
+                                </button>
+                            </li>
+                        ))}
                     </ul>
-                `
-            }
+                )}
+            </AsyncSection>
         </div>
-    `;
+    );
 }

@@ -1,7 +1,7 @@
-import { randomBytes } from "node:crypto";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { getConfigRootDir } from "@oh-my-pi/pi-utils";
+import { randomBytes } from "node:crypto";
 
 export interface TokenFlags {
     regenerate: boolean;
@@ -14,7 +14,8 @@ export function getTokenFilePath(): string {
 
 export async function readToken(): Promise<string | undefined> {
     try {
-        const token = (await readFile(getTokenFilePath(), "utf8")).trim();
+        const tokenFile = await readFile(getTokenFilePath(), "utf8");
+        const token = tokenFile.trim();
         return token || undefined;
     } catch (error) {
         if (isEnoent(error)) {

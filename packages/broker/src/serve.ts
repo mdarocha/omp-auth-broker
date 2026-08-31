@@ -1,10 +1,14 @@
-import { AuthStorage, SqliteAuthCredentialStore, type OAuthProvider } from "@oh-my-pi/pi-ai";
+import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
 import { DEFAULT_AUTH_BROKER_BIND, startAuthBroker } from "@oh-my-pi/pi-ai/auth-broker";
-import { refreshOAuthToken } from "@oh-my-pi/pi-ai/oauth";
 import { getAgentDbPath, logger, VERSION } from "@oh-my-pi/pi-utils";
+import type { AuthBrokerServerHandle } from "@oh-my-pi/pi-ai/auth-broker";
 import { setTransports } from "@oh-my-pi/pi-utils/logger";
+
+import { buildControlRoutes } from "./routes";
+import type { ControlContext } from "./control";
+import { json } from "./http";
+import { proxyToBroker } from "./proxy";
 import uiIndex from "../../ui/index.html";
-import { controlApi, type ControlContext } from "./control";
 
 export interface ServeFlags {
     bind?: string;
@@ -15,46 +19,48 @@ interface BindOptions {
     port: number;
 }
 
-export async function runServe(flags: ServeFlags): Promise<never> {
-    setTransports({ console: true, file: false });
+interface AuthState {
+    store: SqliteAuthCredentialStore;
+    storage: AuthStorage;
+}
 
-    const publicBind = flags.bind ?? DEFAULT_AUTH_BROKER_BIND;
-    const publicOptions = parseBindToServeOptions(publicBind);
+interface PublicServerOptions {
+    broker: AuthBrokerServerHandle;
+    context: ControlContext;
+    options: BindOptions;
+    storage: AuthStorage;
+}
+
+async function openAuthStorage(): Promise<AuthState> {
     const store = await SqliteAuthCredentialStore.open(getAgentDbPath());
-    const storage = new AuthStorage(store, {
-        refreshOAuthCredential: (provider, _id, credential) => refreshOAuthToken(provider as OAuthProvider, credential),
-    });
-
+    const storage = new AuthStorage(store);
     try {
         await storage.reload();
     } catch (error) {
         await Promise.resolve(storage.close());
         throw error;
     }
+    return { store, storage };
+}
 
-    const broker = startAuthBroker({
-        storage,
-        bind: "127.0.0.1:0",
-        bearerTokens: [],
-        version: VERSION,
-    });
-    const context: ControlContext = {
-        brokerBase: `http://127.0.0.1:${broker.port}`,
-        sessions: new Map(),
-        storage,
-        store,
-    };
-
-    let server: Bun.Server<undefined>;
+async function startPublicServer({
+    broker,
+    context,
+    options,
+    storage,
+}: PublicServerOptions): Promise<Bun.Server<undefined>> {
     try {
-        server = Bun.serve({
-            ...publicOptions,
+        return Bun.serve({
+            ...options,
             idleTimeout: 255,
             routes: {
                 "/": uiIndex,
+                ...buildControlRoutes(context),
+                "/v1": (request: Request) => proxyToBroker(request, context.brokerBase),
+                "/v1/*": (request: Request) => proxyToBroker(request, context.brokerBase),
             },
             fetch(request) {
-                return dispatch(request, context);
+                return dispatch(request);
             },
         });
     } catch (error) {
@@ -62,14 +68,13 @@ export async function runServe(flags: ServeFlags): Promise<never> {
         await Promise.resolve(storage.close());
         throw error;
     }
+}
 
-    const url = `http://${formatHost(publicOptions.hostname)}:${server.port}`;
-    logger.info("omp-auth-broker listening", {
-        auth: "none (network-gated)",
-        ui: "/",
-        url,
-    });
-
+async function watchForShutdown(
+    server: Bun.Server<undefined>,
+    broker: AuthBrokerServerHandle,
+    storage: AuthStorage,
+): Promise<never> {
     let stopping = false;
     const shutdown = async (): Promise<void> => {
         if (stopping) {
@@ -96,20 +101,36 @@ export async function runServe(flags: ServeFlags): Promise<never> {
     return await new Promise<never>(() => {});
 }
 
-export async function proxyToBroker(request: Request, brokerBase: string): Promise<Response> {
-    const url = new URL(request.url);
-    const response = await fetch(`${brokerBase}${url.pathname}${url.search}`, {
-        body: request.body,
-        duplex: "half",
-        headers: request.headers,
-        method: request.method,
-    } as RequestInit & { duplex: "half" });
+export async function runServe(flags: ServeFlags): Promise<never> {
+    setTransports({ console: true, file: false });
 
-    return new Response(response.body, {
-        headers: response.headers,
-        status: response.status,
-        statusText: response.statusText,
+    const publicBind = flags.bind ?? DEFAULT_AUTH_BROKER_BIND;
+    const publicOptions = parseBindToServeOptions(publicBind);
+    const { store, storage } = await openAuthStorage();
+
+    const broker = startAuthBroker({
+        storage,
+        bind: "127.0.0.1:0",
+        bearerTokens: [],
+        version: VERSION,
     });
+    const context: ControlContext = {
+        brokerBase: `http://127.0.0.1:${broker.port}`,
+        sessions: new Map(),
+        storage,
+        store,
+    };
+
+    const server = await startPublicServer({ broker, context, options: publicOptions, storage });
+
+    const url = `http://${formatHost(publicOptions.hostname)}:${server.port}`;
+    logger.info("omp-auth-broker listening", {
+        auth: "none (network-gated)",
+        ui: "/",
+        url,
+    });
+
+    return await watchForShutdown(server, broker, storage);
 }
 
 function parseBindToServeOptions(bind: string): BindOptions {
@@ -133,13 +154,10 @@ function formatHost(hostname: string): string {
     return hostname.includes(":") ? `[${hostname}]` : hostname;
 }
 
-async function dispatch(request: Request, context: ControlContext): Promise<Response> {
+function dispatch(request: Request): Response {
     const { pathname } = new URL(request.url);
-    if (pathname === "/v1" || pathname.startsWith("/v1/")) {
-        return proxyToBroker(request, context.brokerBase);
-    }
     if (pathname === "/api" || pathname.startsWith("/api/")) {
-        return controlApi(request, context);
+        return json({ error: "Not found" }, 404);
     }
 
     return new Response("Not Found", { status: 404 });

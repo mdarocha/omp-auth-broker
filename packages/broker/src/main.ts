@@ -6,81 +6,84 @@ const usage = `Usage:
   omp-auth-broker serve [--bind=<host:port>]
   omp-auth-broker token [--regenerate] [--json]`;
 
-type Command = { action: "serve"; bind?: string } | { action: "token"; regenerate: boolean; json: boolean };
+interface ServeCommand {
+    action: "serve";
+    bind?: string;
+}
+
+interface TokenCommand {
+    action: "token";
+    regenerate: boolean;
+    json: boolean;
+}
+type Command = ServeCommand | TokenCommand;
 
 function parseArgs(argv: string[]): Command | undefined {
     const [action, ...args] = argv;
-
     if (action === "serve") {
-        let bind: string | undefined;
-
-        for (let index = 0; index < args.length; index += 1) {
-            const arg = args[index];
-            if (arg.startsWith("--bind=")) {
-                if (bind !== undefined || arg.length === "--bind=".length) {
-                    return undefined;
-                }
-                bind = arg.slice("--bind=".length);
-                continue;
-            }
-            if (arg === "--bind") {
-                const value = args[index + 1];
-                if (bind !== undefined || value === undefined || value.startsWith("-")) {
-                    return undefined;
-                }
-                bind = value;
-                index += 1;
-                continue;
-            }
-            return undefined;
-        }
-
-        return { action, bind };
+        return parseServeArgs(args);
     }
-
     if (action === "token") {
-        let regenerate = false;
-        let json = false;
-
-        for (const arg of args) {
-            if (arg === "--regenerate" && !regenerate) {
-                regenerate = true;
-                continue;
-            }
-            if (arg === "--json" && !json) {
-                json = true;
-                continue;
-            }
-            return undefined;
-        }
-
-        return { action, regenerate, json };
+        return parseTokenArgs(args);
     }
-
     return undefined;
+}
+
+function parseServeArgs(args: string[]): ServeCommand | undefined {
+    const [flag = "", value] = args;
+    if (args.length === 0) {
+        return { action: "serve", bind: undefined };
+    }
+    if (args.length === 1 && flag.startsWith("--bind=") && flag.length > "--bind=".length) {
+        return { action: "serve", bind: flag.slice("--bind=".length) };
+    }
+    if (args.length === 2 && flag === "--bind" && value !== undefined && !value.startsWith("-")) {
+        return { action: "serve", bind: value };
+    }
+    return undefined;
+}
+
+function parseTokenArgs(args: string[]): TokenCommand | undefined {
+    const regenerate = args.includes("--regenerate");
+    const json = args.includes("--json");
+    if (args.length !== Number(regenerate) + Number(json)) {
+        return undefined;
+    }
+    return { action: "token", regenerate, json };
 }
 
 async function main(): Promise<void> {
     const command = parseArgs(process.argv.slice(2));
     if (!command) {
-        console.error(usage);
-        process.exitCode = 1;
+        showUsage();
         return;
     }
 
     try {
-        if (command.action === "serve") {
-            await runServe({ bind: command.bind });
-            return;
-        }
-
-        await runToken(command);
+        await dispatchCommand(command);
     } catch (error) {
-        logger.error("omp-auth-broker failed", {
-            error: error instanceof Error ? error.message : String(error),
-        });
-        process.exitCode = 1;
+        reportFailure(error);
     }
+}
+
+async function dispatchCommand(command: Command): Promise<void> {
+    if (command.action === "serve") {
+        await runServe({ bind: command.bind });
+        return;
+    }
+    await runToken(command);
+}
+
+function showUsage(): void {
+    console.error(usage);
+    process.exitCode = 1;
+}
+
+function reportFailure(error: unknown): void {
+    logger.error("omp-auth-broker failed", {
+        error: error instanceof Error ? error.message : String(error),
+    });
+    process.exitCode = 1;
 }
 
 void main();

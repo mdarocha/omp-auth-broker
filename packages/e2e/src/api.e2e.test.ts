@@ -1,4 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
+import { assertLoopbackHttpUrl } from "./loopback";
 import ky from "ky";
 import type { KyInstance } from "ky";
 import { startTestApp } from "./fixture";
@@ -26,13 +27,6 @@ let activeApp: Awaited<ReturnType<typeof startTestApp>> | undefined;
 afterAll(async () => {
     await activeApp?.close();
 });
-
-function assertLoopbackHttpUrl(value: string): URL {
-    const url = new URL(value);
-    expect(url.protocol).toBe("http:");
-    expect(["127.0.0.1", "::1", "localhost"]).toContain(url.hostname);
-    return url;
-}
 
 async function requestJson<T>(request: Promise<Response>, schema: z.ZodType<T>): Promise<T> {
     const response = await request;

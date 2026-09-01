@@ -35,6 +35,7 @@
       "name": "@omp-auth-broker/ui",
       "dependencies": {
         "preact": "^10.24.0",
+        "zod": "4.5.4",
       },
     },
   },

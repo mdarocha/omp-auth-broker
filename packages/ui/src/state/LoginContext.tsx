@@ -6,6 +6,7 @@ import { createContext } from "preact";
 import { useVault } from "./VaultContext";
 
 const loginPollIntervalMs = 1_500;
+const maxConsecutiveLoginPollFailures = 3;
 
 interface LoginContextValue {
     login: LoginSession | null;
@@ -37,6 +38,26 @@ function applyLoginStatus({ status, updateLogin, refreshVault, scheduleNextPoll 
     if (status.state === "pending") {
         scheduleNextPoll();
     }
+}
+
+interface LoginPollFailureOptions {
+    error: unknown;
+    consecutiveFailures: number;
+    updateLogin: LoginUpdater;
+    scheduleNextPoll: () => void;
+}
+
+function handleLoginPollFailure({
+    error,
+    consecutiveFailures,
+    updateLogin,
+    scheduleNextPoll,
+}: LoginPollFailureOptions): void {
+    if (consecutiveFailures < maxConsecutiveLoginPollFailures) {
+        scheduleNextPoll();
+        return;
+    }
+    updateLogin((current) => (current ? { ...current, state: "error", message: errorMessage(error) } : current));
 }
 
 function useLoginForm(login: LoginSession | null) {
@@ -77,7 +98,7 @@ function useLoginForm(login: LoginSession | null) {
 }
 
 export function LoginProvider({ children }: { children: ComponentChildren }) {
-    const vault = useVault();
+    const { refreshVault } = useVault();
     const [login, setLogin] = useState<LoginSession | null>(null);
     const { code, codeBusy, codeError, onCodeChange, onSubmitCode, resetForm } = useLoginForm(login);
 
@@ -87,7 +108,7 @@ export function LoginProvider({ children }: { children: ComponentChildren }) {
         }
         let cancelled = false;
         let timeout: ReturnType<typeof setTimeout>;
-
+        let consecutiveFailures = 0;
         const updateLogin: LoginUpdater = (updater) => {
             setLogin(updater);
         };
@@ -95,23 +116,31 @@ export function LoginProvider({ children }: { children: ComponentChildren }) {
         const poll = async () => {
             try {
                 const status = await getLoginStatus(login.sessionId);
+                consecutiveFailures = 0;
                 if (cancelled) {
                     return;
                 }
                 applyLoginStatus({
                     status,
                     updateLogin,
-                    refreshVault: vault.refreshVault,
+                    refreshVault,
                     scheduleNextPoll: () => {
                         timeout = setTimeout(poll, loginPollIntervalMs);
                     },
                 });
             } catch (error) {
-                if (!cancelled) {
-                    setLogin((current) =>
-                        current ? { ...current, state: "error", message: errorMessage(error) } : current,
-                    );
+                if (cancelled) {
+                    return;
                 }
+                consecutiveFailures += 1;
+                handleLoginPollFailure({
+                    error,
+                    consecutiveFailures,
+                    updateLogin,
+                    scheduleNextPoll: () => {
+                        timeout = setTimeout(poll, loginPollIntervalMs);
+                    },
+                });
             }
         };
 
@@ -120,7 +149,7 @@ export function LoginProvider({ children }: { children: ComponentChildren }) {
             cancelled = true;
             clearTimeout(timeout);
         };
-    }, [login?.sessionId, login?.state, vault]);
+    }, [login?.sessionId, login?.state, refreshVault]);
 
     const beginLogin = useCallback(
         async (provider: Provider) => {

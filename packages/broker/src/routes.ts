@@ -9,32 +9,37 @@ import {
     runLoginFlow,
 } from "./login-session";
 import { fetchBroker, forwardUpstream } from "./proxy";
-import { guardMethod, isRecord, json, readJsonBody, withErrorBoundary } from "./http";
+import { isRecord, json, readJsonBody } from "./http";
 import type { LoginSession, LoginStartResult } from "./login-session";
 import type { ControlContext } from "./control";
 
 export function buildControlRoutes(context: ControlContext) {
     return {
-        "/api/login": withErrorBoundary((request: Request) => loginRoute(request, context)),
-        "/api/login/:id/code": withErrorBoundary((request: Bun.BunRequest<"/api/login/:id/code">) =>
-            loginCodeRoute(request, context),
-        ),
-        "/api/login/:id/status": withErrorBoundary((request: Bun.BunRequest<"/api/login/:id/status">) =>
-            loginStatusRoute(request, context),
-        ),
-        "/api/logout": withErrorBoundary((request: Request) => logoutRoute(request, context)),
-        "/api/providers": withErrorBoundary((request: Request) => providersRoute(request)),
-        "/api/snapshot": withErrorBoundary((request: Request) => snapshotRoute(request, context)),
-        "/api/usage": withErrorBoundary((request: Request) => usageRoute(request, context)),
+        "/api/login": {
+            POST: (request: Request) => loginRoute(request, context),
+        },
+        "/api/login/:id/code": {
+            POST: (request: Bun.BunRequest<"/api/login/:id/code">) => loginCodeRoute(request, context),
+        },
+        "/api/login/:id/status": {
+            GET: (request: Bun.BunRequest<"/api/login/:id/status">) => loginStatusRoute(request, context),
+        },
+        "/api/logout": {
+            POST: (request: Request) => logoutRoute(request, context),
+        },
+        "/api/providers": {
+            GET: providersRoute,
+        },
+        "/api/snapshot": {
+            GET: () => snapshotRoute(context),
+        },
+        "/api/usage": {
+            GET: () => usageRoute(context),
+        },
     };
 }
 
-function providersRoute(request: Request): Response {
-    const guard = guardMethod(request, "GET");
-    if (guard) {
-        return guard;
-    }
-
+function providersRoute(): Response {
     return json(
         getOAuthProviders().map((provider) => ({
             id: provider.id,
@@ -44,12 +49,7 @@ function providersRoute(request: Request): Response {
     );
 }
 
-async function snapshotRoute(request: Request, context: ControlContext): Promise<Response> {
-    const guard = guardMethod(request, "GET");
-    if (guard) {
-        return guard;
-    }
-
+async function snapshotRoute(context: ControlContext): Promise<Response> {
     return forwardUpstream(await fetchBroker(context.brokerBase, "/v1/snapshot"));
 }
 
@@ -93,12 +93,7 @@ async function fetchUsageSnapshot(context: ControlContext): Promise<Response> {
     });
 }
 
-async function usageRoute(request: Request, context: ControlContext): Promise<Response> {
-    const guard = guardMethod(request, "GET");
-    if (guard) {
-        return guard;
-    }
-
+async function usageRoute(context: ControlContext): Promise<Response> {
     return fetchUsageSnapshot(context);
 }
 
@@ -130,11 +125,6 @@ function startLoginFlow(context: ControlContext, provider: OAuthProviderId): Pro
 }
 
 async function loginRoute(request: Request, context: ControlContext): Promise<Response> {
-    const guard = guardMethod(request, "POST");
-    if (guard) {
-        return guard;
-    }
-
     const provider = await readProvider(request);
     if (provider instanceof Response) {
         return provider;
@@ -144,11 +134,6 @@ async function loginRoute(request: Request, context: ControlContext): Promise<Re
 }
 
 function loginStatusRoute(request: Bun.BunRequest<"/api/login/:id/status">, context: ControlContext): Response {
-    const guard = guardMethod(request, "GET");
-    if (guard) {
-        return guard;
-    }
-
     const session = context.sessions.get(request.params.id);
     if (!session) {
         return json({ error: "Login session not found" }, 404);
@@ -185,11 +170,6 @@ async function loginCodeRoute(
     request: Bun.BunRequest<"/api/login/:id/code">,
     context: ControlContext,
 ): Promise<Response> {
-    const guard = guardMethod(request, "POST");
-    if (guard) {
-        return guard;
-    }
-
     const submission = await readLoginCodeSubmission(request, context);
     if (submission instanceof Response) {
         return submission;
@@ -200,11 +180,6 @@ async function loginCodeRoute(
 }
 
 async function logoutRoute(request: Request, context: ControlContext): Promise<Response> {
-    const guard = guardMethod(request, "POST");
-    if (guard) {
-        return guard;
-    }
-
     const provider = await readProvider(request);
     if (provider instanceof Response) {
         return provider;

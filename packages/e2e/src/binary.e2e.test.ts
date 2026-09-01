@@ -1,11 +1,14 @@
 import { basename, join, resolve } from "node:path";
 import { expect, test } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
+import { assertLoopbackHttpUrl } from "./loopback";
 import { tmpdir } from "node:os";
 import { z } from "zod";
 
 const tokenResponseSchema = z.object({ token: z.string().regex(/^[a-f0-9]{64}$/) }).strict();
 const nativeModuleNames = ["pi_natives.linux-x64-modern.node", "pi_natives.linux-x64-baseline.node"] as const;
+type ServerProcess = Bun.Subprocess<"ignore", "pipe", "pipe">;
+
 const readinessTimeoutMs = 5000;
 const pollIntervalMs = 50;
 
@@ -38,18 +41,48 @@ async function copyNativeModules(repoRoot: string, destination: string): Promise
     }
 }
 
-function reserveLoopbackPort(): number {
-    const reservation = Bun.serve({
-        fetch: () => new Response(null, { status: 204 }),
-        hostname: "127.0.0.1",
-        port: 0,
-    });
-    const { port } = reservation;
-    void reservation.stop(true);
-    if (typeof port !== "number") {
-        throw new Error("Could not reserve a loopback TCP port");
+async function readListeningUrl(output: ReadableStream<Uint8Array>): Promise<string> {
+    const decoder = new TextDecoder();
+    const reader = output.getReader();
+    let text = "";
+    try {
+        while (true) {
+            const result = await reader.read();
+            if (result.done) {
+                break;
+            }
+            text = `${text}${decoder.decode(result.value, { stream: true })}`.slice(-4096);
+            const listeningUrl = /omp-auth-broker listening[\s\S]*?(http:\/\/[^\s"]+)/.exec(text)?.[1];
+            if (listeningUrl) {
+                return assertLoopbackHttpUrl(listeningUrl).origin;
+            }
+        }
+    } finally {
+        reader.releaseLock();
     }
-    return port;
+    throw new Error("Compiled server output ended without reporting its listening URL");
+}
+
+async function waitForListeningUrl(process: ServerProcess): Promise<string> {
+    const output = Promise.any([readListeningUrl(process.stdout), readListeningUrl(process.stderr)]).catch(() => {
+        throw new Error("Compiled server output ended without reporting its listening URL");
+    });
+    const deadline = new Promise<never>((_, reject) => {
+        AbortSignal.timeout(readinessTimeoutMs).addEventListener(
+            "abort",
+            () =>
+                reject(
+                    new Error(
+                        `Timed out waiting for compiled server to report its listening URL after ${readinessTimeoutMs}ms`,
+                    ),
+                ),
+            { once: true },
+        );
+    });
+    const exited = process.exited.then((exitCode) => {
+        throw new Error(`Compiled server exited before becoming ready with code ${exitCode}`);
+    });
+    return await Promise.race([output, exited, deadline]);
 }
 
 async function waitForHealth(url: string): Promise<void> {
@@ -64,13 +97,12 @@ async function waitForHealth(url: string): Promise<void> {
         } catch (error) {
             lastError = error;
         }
-        // The external compiled process has no readiness event available to this test.
         await Bun.sleep(pollIntervalMs);
     }
     throw new Error(`Timed out waiting for ${url}/v1/healthz`, { cause: lastError });
 }
 
-async function terminate(process: Bun.Subprocess | undefined): Promise<void> {
+async function terminate(process: ServerProcess | undefined): Promise<void> {
     if (!process) {
         return;
     }
@@ -83,7 +115,7 @@ async function terminate(process: Bun.Subprocess | undefined): Promise<void> {
 test("compiled executable generates a token and serves the UI", async () => {
     const repoRoot = resolve(import.meta.dir, "../../..");
     const tempDir = await mkdtemp(join(tmpdir(), "omp-auth-broker-binary-e2e-"));
-    let server: Bun.Subprocess | undefined;
+    let server: ServerProcess | undefined;
     try {
         const executablePath = join(tempDir, "omp-auth-broker");
         const build = await runCommand(
@@ -106,14 +138,14 @@ test("compiled executable generates a token and serves the UI", async () => {
         expect(token.exitCode, token.stderr).toBe(0);
         tokenResponseSchema.parse(JSON.parse(token.stdout));
 
-        const port = reserveLoopbackPort();
-        const baseUrl = `http://127.0.0.1:${port}`;
         server = Bun.spawn({
-            cmd: [executablePath, "serve", `--bind=127.0.0.1:${port}`],
+            cmd: [executablePath, "serve", "--bind=127.0.0.1:0"],
             env,
+            stdin: "ignore",
             stderr: "pipe",
             stdout: "pipe",
         });
+        const baseUrl = await waitForListeningUrl(server);
         await waitForHealth(baseUrl);
 
         const root = await fetch(baseUrl);

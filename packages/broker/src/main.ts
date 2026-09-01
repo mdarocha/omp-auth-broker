@@ -1,4 +1,5 @@
 import { logger } from "@oh-my-pi/pi-utils";
+import { parseArgs as parseNodeArgs } from "node:util";
 import { runServe } from "./serve";
 import { runToken } from "./token";
 
@@ -18,38 +19,30 @@ interface TokenCommand {
 }
 type Command = ServeCommand | TokenCommand;
 
+const cliOptions = {
+    bind: { type: "string" },
+    regenerate: { type: "boolean" },
+    json: { type: "boolean" },
+} as const;
+
 function parseArgs(argv: string[]): Command | undefined {
     const [action, ...args] = argv;
-    if (action === "serve") {
-        return parseServeArgs(args);
-    }
-    if (action === "token") {
-        return parseTokenArgs(args);
-    }
-    return undefined;
-}
-
-function parseServeArgs(args: string[]): ServeCommand | undefined {
-    const [flag = "", value] = args;
-    if (args.length === 0) {
-        return { action: "serve", bind: undefined };
-    }
-    if (args.length === 1 && flag.startsWith("--bind=") && flag.length > "--bind=".length) {
-        return { action: "serve", bind: flag.slice("--bind=".length) };
-    }
-    if (args.length === 2 && flag === "--bind" && value !== undefined && !value.startsWith("-")) {
-        return { action: "serve", bind: value };
-    }
-    return undefined;
-}
-
-function parseTokenArgs(args: string[]): TokenCommand | undefined {
-    const regenerate = args.includes("--regenerate");
-    const json = args.includes("--json");
-    if (args.length !== Number(regenerate) + Number(json)) {
+    try {
+        const { values } = parseNodeArgs({ args, options: cliOptions, strict: true });
+        if (action === "serve" && !values.regenerate && !values.json && values.bind !== "") {
+            return { action, bind: values.bind };
+        }
+        if (action === "token" && values.bind === undefined) {
+            return {
+                action,
+                regenerate: values.regenerate ?? false,
+                json: values.json ?? false,
+            };
+        }
+    } catch {
         return undefined;
     }
-    return { action: "token", regenerate, json };
+    return undefined;
 }
 
 async function main(): Promise<void> {

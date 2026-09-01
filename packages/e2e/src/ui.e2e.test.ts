@@ -1,14 +1,9 @@
 import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "bun:test";
 import { chromium } from "@playwright/test";
+import { LOOPBACK_HOSTNAMES } from "./loopback";
 import { startTestApp } from "./fixture";
 import type { TestApp } from "./fixture";
-
-const LOOPBACK_HOSTNAMES: Record<string, true> = {
-    "127.0.0.1": true,
-    "::1": true,
-    localhost: true,
-};
 
 test("connects and removes a mock provider through the browser UI", async () => {
     const chromiumPath = Bun.which("chromium");

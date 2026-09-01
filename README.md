@@ -2,88 +2,70 @@
 
 # omp-auth-broker
 
-`omp-auth-broker` is a lightweight, self-hostable version of Oh My Pi's auth broker. It exposes a shared OAuth vault, the `/v1/*` API, and a browser UI without installing or pulling the complete omp binary.
+`omp-auth-broker` is a lightweight, self-hostable version of omp's auth broker. Run the shared OAuth credential vault, the `/v1` broker API, and a web UI without installing the full omp binary.
 
-> [!WARNING]
-> **This service has no application authentication or Authorization handling.** Anyone who can reach its UI, `/api/*`, or `/v1/*` can use and change the shared credentials. Keep it on loopback or behind a reachability-restricting network gateway such as Tailscale. Never bind it directly to a public interface.
+## Security
 
-The UI, `/api/*`, and `/v1/*` are intentionally open; the broker's internal listener uses `bearerTokens: []`. The shared vault is omp's `~/.omp/agent.db`. Set `PI_CONFIG_DIR` before starting the service when an isolated vault is needed.
+**There is no application authentication on any route.** Network reachability is the only gate: use loopback or Tailscale. Do not expose this service directly to a public network.
 
-## Web UI
+Anyone who can reach the service can use the UI, `/api/*`, and `/v1/*`. Cross-site requests to `/api/*` receive `403`, and requests without a JSON content type receive `415`. Those checks are CSRF hardening, not authentication.
 
-Open the server root in a browser to manage the shared vault:
+## Web UI and vault
 
-- **Accounts** lists stored credentials with provider, identity, status, expiry, and refresh timing. Removing an account removes that provider's credentials from the shared vault.
-- **Add** presents every supported OAuth provider.
-- **Login** opens the provider's OAuth flow, including a paste-code prompt when required. OAuth login exists only in this UI flow through `/api/login`; it is never available through `/v1/*`.
-- **Usage** shows per-credential reports and per-client request/token totals for the last 30 days.
+Open the server root to manage the shared vault. The UI lists accounts, starts provider OAuth login, removes credentials, and shows account status and expiry. OAuth login is available only through the UI's `/api/login`, never through `/v1`.
+
+![Accounts page listing the shared OAuth credentials and their status](docs/screenshots/accounts.png)
+
+The Usage section reports per-credential provider limits and per-client request and token totals for the last 30 days.
+
+![Usage section showing per-credential provider limits and per-client request totals](docs/screenshots/usage.png)
+
+The vault is omp's `~/.omp/agent.db`. Set `PI_CONFIG_DIR` before starting the broker to use an isolated vault. `/v1/*` is transparently proxied to an in-process upstream broker.
 
 ## CLI
 
 ```sh
 omp-auth-broker serve --bind=127.0.0.1:8765
-
-# This compatibility token is not validated by the broker.
 omp-auth-broker token
-omp-auth-broker token --regenerate
-omp-auth-broker token --json
 ```
 
-`serve` accepts `--bind=<host:port>`. Use a loopback bind address unless Tailscale or another gateway restricts reachability.
+`serve` starts the broker and accepts `--bind=<host:port>`. Keep the bind address on loopback unless Tailscale limits who can reach it.
 
-## Workspace commands
+`token` exists because some omp clients insist on setting a token. This broker does not validate it.
 
-Install the Bun workspace dependencies, then use the root scripts:
+## Development
 
 ```sh
 bun install
-
-# Run the public broker workspace
 bun run dev -- --bind=127.0.0.1:8765
-
-# Type-check both workspace configurations
 bun run check
-
-# Build the browser bundle into packages/ui/dist
-bun run build-ui
-
-# Compile the broker binary from packages/broker/src/main.ts
-bun run build
+bun run lint
+bun run format
+bun run test
 ```
 
-## Nix build and run
+## Nix
 
 ```sh
 nix build
 ./result/bin/omp-auth-broker serve --bind=127.0.0.1:8765
+nix flake check --impure
+devenv test
 ```
 
-Nix derives the Bun dependency closure directly from `bun.lock` with `importNpmLock`; there is no manual aggregate dependency hash to calculate or update. This uses import-from-derivation (IFD), so the evaluator must allow IFD.
+The Nix dependency closure is derived from `bun.lock` automatically. There is no hash to regenerate when dependencies change. This uses import-from-derivation (IFD), so IFD must be allowed.
 
 ## NixOS module
 
-Import the module from the flake and enable the service:
+Import `nixosModules.default` from the flake. The module has exactly four options:
 
 ```nix
-{
-  inputs.omp-auth-broker.url = "github:mdarocha/omp-auth-broker";
-
-  outputs = { nixpkgs, omp-auth-broker, ... }: {
-    nixosConfigurations.example = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        omp-auth-broker.nixosModules.default
-        ({ pkgs, ... }: {
-          services.omp-auth-broker = {
-            enable = true;
-            package = omp-auth-broker.packages.${pkgs.stdenv.hostPlatform.system}.default;
-            bind = "127.0.0.1:8765";
-          };
-        })
-      ];
-    };
-  };
-}
+services.omp-auth-broker = {
+  enable = true;
+  package = omp-auth-broker.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  port = 8765;
+  dataDir = "/var/lib/omp-auth-broker";
+};
 ```
 
-`package` normally defaults to this flake's package; set it when pinning or overriding the broker. `openFirewall` defaults to `false`, so enabling the module does not open a port. That does not add application authentication: the broker remains open to every client that can reach its bind address. Keep the default loopback bind, or use Tailscale or another reachability-restricting gateway.
+`port` defaults to `8765`; `dataDir` defaults to `/var/lib/omp-auth-broker` and sets `PI_CONFIG_DIR`. The service always binds to `127.0.0.1` and never opens a firewall. It runs as a hardened systemd `DynamicUser`.

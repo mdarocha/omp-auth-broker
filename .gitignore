@@ -5,3 +5,4 @@ result
 dist/
 *.log
 *.tsbuildinfo
+.pre-commit-config.yaml

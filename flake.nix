@@ -44,9 +44,7 @@
                     nativeBuildInputs = [ pkgs.bun ];
                   }
                   ''
-                    bun ${./nix/bun-lock-to-package-lock.ts} ${./bun.lock} ${./.} ${pkgs.lib.escapeShellArg (
-                      builtins.toJSON manifests
-                    )} > $out
+                    bun ${./nix/bun-lock-to-package-lock.ts} ${./bun.lock} ${./.} ${pkgs.lib.escapeShellArg (builtins.toJSON manifests)} > $out
                   '';
               packageLock = builtins.fromJSON (builtins.readFile packageLockFile);
               package = packageLock.packages."";
@@ -125,9 +123,7 @@
               export CHROME_BIN=${pkgs.chromium}/bin/chromium
               export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
               export PLAYWRIGHT_BROWSERS_PATH=${pkgs.chromium}
-              export FONTCONFIG_FILE=${
-                pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; }
-              }
+              export FONTCONFIG_FILE=${pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; }}
               mkdir node_modules
               cp -R ${e2eNodeModules}/node_modules/. node_modules/
               (cd packages/e2e && bun test --max-concurrency=1 --timeout=180000)

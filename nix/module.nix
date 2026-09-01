@@ -1,13 +1,24 @@
 { self }:
-{ config, lib, pkgs, utils, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  utils,
+  ...
+}:
 let
   cfg = config.services.omp-auth-broker;
-  inherit (lib) mkEnableOption mkIf mkOption types;
-  noAuthenticationWarning =
-    "The broker provides no application authentication; expose it only through trusted network controls.";
+  inherit (lib)
+    mkEnableOption
+    mkIf
+    mkOption
+    types
+    ;
+  noAuthenticationWarning = "The broker provides no application authentication; expose it only through trusted network controls.";
   settingsFormat = pkgs.formats.json { };
-  settingsFile = settingsFormat.generate "omp-auth-broker-settings.json"
-    (lib.removeAttrs cfg.settings (lib.optional (cfg.settings.hostname == null) "hostname"));
+  settingsFile = settingsFormat.generate "omp-auth-broker-settings.json" (
+    lib.removeAttrs cfg.settings (lib.optional (cfg.settings.hostname == null) "hostname")
+  );
   stateDirName = lib.removePrefix "/var/lib/" cfg.dataDir;
 in
 {
@@ -76,7 +87,11 @@ in
         PrivateTmp = true;
         ProtectSystem = "strict";
         ProtectHome = true;
-        RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
       };
     };
   };

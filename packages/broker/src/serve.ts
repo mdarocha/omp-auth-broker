@@ -14,6 +14,11 @@ export interface ServeFlags {
     bind?: string;
 }
 
+export interface ServeHandle {
+    url: string;
+    close: () => Promise<void>;
+}
+
 interface BindOptions {
     hostname: string;
     port: number;
@@ -25,10 +30,18 @@ interface AuthState {
 }
 
 interface PublicServerOptions {
-    broker: AuthBrokerServerHandle;
     context: ControlContext;
     options: BindOptions;
-    storage: AuthStorage;
+}
+
+interface CleanupState {
+    failure: unknown;
+    hasFailure: boolean;
+}
+
+interface ServeResources {
+    broker: AuthBrokerServerHandle;
+    server: Bun.Server<undefined>;
 }
 
 async function openAuthStorage(): Promise<AuthState> {
@@ -43,38 +56,98 @@ async function openAuthStorage(): Promise<AuthState> {
     return { store, storage };
 }
 
-async function startPublicServer({
-    broker,
-    context,
-    options,
-    storage,
-}: PublicServerOptions): Promise<Bun.Server<undefined>> {
+async function startPublicServer({ context, options }: PublicServerOptions): Promise<Bun.Server<undefined>> {
+    return Bun.serve({
+        ...options,
+        idleTimeout: 255,
+        routes: {
+            "/": uiIndex,
+            ...buildControlRoutes(context),
+            "/v1": (request: Request) => proxyToBroker(request, context.brokerBase),
+            "/v1/*": (request: Request) => proxyToBroker(request, context.brokerBase),
+        },
+        fetch(request) {
+            return dispatch(request);
+        },
+    });
+}
+
+async function closeResources(
+    server: Bun.Server<undefined> | undefined,
+    broker: AuthBrokerServerHandle | undefined,
+    storage: AuthStorage | undefined,
+): Promise<void> {
+    const state: CleanupState = { failure: undefined, hasFailure: false };
+    await closeResource(server ? () => server.stop(true) : undefined, state);
+    await closeResource(broker ? () => broker.close() : undefined, state);
+    await closeResource(storage ? () => storage.close() : undefined, state);
+    if (state.hasFailure) {
+        throw state.failure;
+    }
+}
+
+async function closeResource(operation: (() => unknown) | undefined, state: CleanupState): Promise<void> {
+    if (!operation) {
+        return;
+    }
     try {
-        return Bun.serve({
-            ...options,
-            idleTimeout: 255,
-            routes: {
-                "/": uiIndex,
-                ...buildControlRoutes(context),
-                "/v1": (request: Request) => proxyToBroker(request, context.brokerBase),
-                "/v1/*": (request: Request) => proxyToBroker(request, context.brokerBase),
-            },
-            fetch(request) {
-                return dispatch(request);
-            },
-        });
+        await operation();
     } catch (error) {
-        await broker.close();
-        await Promise.resolve(storage.close());
+        if (!state.hasFailure) {
+            state.failure = error;
+            state.hasFailure = true;
+        }
+    }
+}
+
+function startBroker(storage: AuthStorage): AuthBrokerServerHandle {
+    return startAuthBroker({
+        storage,
+        bind: "127.0.0.1:0",
+        bearerTokens: [],
+        version: VERSION,
+    });
+}
+
+function createControlContext(
+    store: SqliteAuthCredentialStore,
+    storage: AuthStorage,
+    broker: AuthBrokerServerHandle,
+): ControlContext {
+    return {
+        brokerBase: `http://127.0.0.1:${broker.port}`,
+        sessions: new Map(),
+        storage,
+        store,
+    };
+}
+
+async function startServeResources(
+    store: SqliteAuthCredentialStore,
+    storage: AuthStorage,
+    publicOptions: BindOptions,
+): Promise<ServeResources> {
+    let broker: AuthBrokerServerHandle | undefined;
+    let server: Bun.Server<undefined> | undefined;
+    try {
+        broker = startBroker(storage);
+        server = await startPublicServer({
+            context: createControlContext(store, storage, broker),
+            options: publicOptions,
+        });
+        return { broker, server };
+    } catch (error) {
+        await closeResources(server, broker, storage);
         throw error;
     }
 }
 
-async function watchForShutdown(
-    server: Bun.Server<undefined>,
-    broker: AuthBrokerServerHandle,
-    storage: AuthStorage,
-): Promise<never> {
+function createClose(resources: ServeResources, storage: AuthStorage): () => Promise<void> {
+    let closePromise: Promise<void> | undefined;
+    return () => (closePromise ??= closeResources(resources.server, resources.broker, storage));
+}
+
+async function watchForShutdown(close: () => Promise<void>): Promise<never> {
     let stopping = false;
     const shutdown = async (): Promise<void> => {
         if (stopping) {
@@ -83,9 +156,7 @@ async function watchForShutdown(
         stopping = true;
 
         try {
-            await server.stop(true);
-            await broker.close();
-            await Promise.resolve(storage.close());
+            await close();
         } finally {
             process.exit(0);
         }
@@ -101,36 +172,23 @@ async function watchForShutdown(
     return await new Promise<never>(() => {});
 }
 
-export async function runServe(flags: ServeFlags): Promise<never> {
-    setTransports({ console: true, file: false });
-
-    const publicBind = flags.bind ?? DEFAULT_AUTH_BROKER_BIND;
-    const publicOptions = parseBindToServeOptions(publicBind);
+export async function startServe(flags: ServeFlags): Promise<ServeHandle> {
+    const publicOptions = parseBindToServeOptions(flags.bind ?? DEFAULT_AUTH_BROKER_BIND);
     const { store, storage } = await openAuthStorage();
-
-    const broker = startAuthBroker({
-        storage,
-        bind: "127.0.0.1:0",
-        bearerTokens: [],
-        version: VERSION,
-    });
-    const context: ControlContext = {
-        brokerBase: `http://127.0.0.1:${broker.port}`,
-        sessions: new Map(),
-        storage,
-        store,
-    };
-
-    const server = await startPublicServer({ broker, context, options: publicOptions, storage });
-
-    const url = `http://${formatHost(publicOptions.hostname)}:${server.port}`;
+    const resources = await startServeResources(store, storage, publicOptions);
+    const url = `http://${formatHost(publicOptions.hostname)}:${resources.server.port}`;
     logger.info("omp-auth-broker listening", {
         auth: "none (network-gated)",
         ui: "/",
         url,
     });
+    return { url, close: createClose(resources, storage) };
+}
 
-    return await watchForShutdown(server, broker, storage);
+export async function runServe(flags: ServeFlags): Promise<never> {
+    setTransports({ console: true, file: false });
+    const serve = await startServe(flags);
+    return await watchForShutdown(serve.close);
 }
 
 function parseBindToServeOptions(bind: string): BindOptions {

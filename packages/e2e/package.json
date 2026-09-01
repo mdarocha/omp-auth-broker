@@ -1,0 +1,16 @@
+{
+  "name": "@omp-auth-broker/e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test --max-concurrency=1 --timeout=180000",
+    "lint": "oxlint --config oxlint.config.ts .",
+    "lint:fix": "oxlint --config oxlint.config.ts --fix ."
+  },
+  "devDependencies": {
+    "@oh-my-pi/pi-utils": "^18.0.5",
+    "@playwright/test": "1.62.1",
+    "ky": "2.1.0",
+    "zod": "4.5.4"
+  }
+}

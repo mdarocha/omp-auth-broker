@@ -11,7 +11,7 @@ The broker serves the UI and open `/api/*` control API, and transparently proxie
 
 The broker wiring is trimmed from `packages/coding-agent/src/cli/auth-broker-cli.ts` upstream. When upgrading `@oh-my-pi` dependencies, re-diff that upstream file rather than reimplementing provider, credential, refresh, or broker behavior locally.
 
-`nix/module.nix` exports the NixOS service as `services.omp-auth-broker`. Its package defaults to this flake's package, its bind default is `127.0.0.1:8765`, and `openFirewall` defaults to `false`.
+`nix/module.nix` exports the NixOS service as `services.omp-auth-broker` with exactly four options: `enable`, `package`, `port` (default `8765`), and `dataDir` (default `/var/lib/omp-auth-broker`). The unit always binds `127.0.0.1:<port>`; the address is not configurable, and the module never touches `networking.firewall`.
 
 ## Security invariants
 
@@ -19,7 +19,7 @@ The broker wiring is trimmed from `packages/coding-agent/src/cli/auth-broker-cli
 - The service **MUST** be exposed only on loopback or behind a reachability-restricting network gateway such as Tailscale. **NEVER** bind it directly to a publicly reachable interface.
 - OAuth login is UI-only through `/api/login`. **NEVER** add a login route to `/v1/*`.
 - The shared credential vault is `~/.omp/agent.db`. Set `PI_CONFIG_DIR` to isolate a development or test vault; do not introduce another default vault.
-- `openFirewall = false` controls only NixOS firewall rules. It does not make the service authenticated.
+- The bind address is hardcoded to loopback; there is no `openFirewall` option and the module never opens a firewall port.
 
 ## Commands
 

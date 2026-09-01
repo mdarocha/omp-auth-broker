@@ -32,9 +32,9 @@ export function relativeTime(ms: number): string {
     return formatRelativeTime(amount, unit, ms >= 0);
 }
 
-export function formatDate(value?: number): string {
+export function formatDate(value: number | undefined, fallback: string): string {
     if (value && Number.isFinite(value)) {
         return absoluteDate.format(value);
     }
-    return "No expiry";
+    return fallback;
 }

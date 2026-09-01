@@ -68,7 +68,7 @@ function reportRow(report: UsageReport, limit: UsageLimit) {
             <td className="numeric">
                 {limit.window?.resetsAt ? (
                     <>
-                        <span>{formatDate(limit.window.resetsAt)}</span>
+                        <span>{formatDate(limit.window.resetsAt, "—")}</span>
                         <small>{relativeTime(limit.window.resetsAt - Date.now())}</small>
                     </>
                 ) : (

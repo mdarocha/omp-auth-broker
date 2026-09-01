@@ -30,7 +30,7 @@ export function AccountRow({ credential, removing, onRemove }: AccountRowProps) 
                 </span>
             </td>
             <td className="numeric">
-                <span>{formatDate(credential.credential.expires)}</span>
+                <span>{formatDate(credential.credential.expires, "No expiry")}</span>
                 {credential.credential.expires && (
                     <small>{relativeTime(credential.credential.expires - Date.now())}</small>
                 )}

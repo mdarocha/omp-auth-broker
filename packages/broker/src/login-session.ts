@@ -55,10 +55,10 @@ export function waitForCode(session: LoginSession): Promise<string> {
     return session.inputPromise;
 }
 
-export function resolveLoginCode(session: LoginSession, code: string): boolean {
+export function resolveLoginCode(session: LoginSession, code: string): void {
     const resolveInput = session.resolveInput;
     if (!resolveInput) {
-        return false;
+        return;
     }
 
     session.inputPromise = undefined;
@@ -66,7 +66,6 @@ export function resolveLoginCode(session: LoginSession, code: string): boolean {
     session.rejectInput = undefined;
     session.resolveInput = undefined;
     resolveInput(code);
-    return true;
 }
 
 export function createStartSignal(): {
@@ -105,23 +104,16 @@ export interface LoginControllerOptions {
     provider: OAuthProviderId;
     session: LoginSession;
     completeStart: () => void;
-    failStart: (error: unknown) => void;
 }
 
 export function buildLoginController(options: LoginControllerOptions) {
-    const { provider, session, completeStart, failStart } = options;
+    const { provider, session, completeStart } = options;
     return {
         onAuth: (auth) => {
-            if (!auth.url) {
-                const error = new Error("OAuth provider did not provide an authorization URL");
-                session.state = "error";
-                session.message = error.message;
-                failStart(error);
-                return;
+            if (auth.url) {
+                session.url = auth.url;
+                session.instructions = auth.instructions;
             }
-
-            session.url = auth.url;
-            session.instructions = auth.instructions;
             completeStart();
         },
         onProgress: (progress) => {
@@ -144,11 +136,12 @@ export interface LoginFlowOptions {
     provider: OAuthProviderId;
     session: LoginSession;
     controller: Parameters<AuthStorage["login"]>[1];
+    completeStart: () => void;
     failStart: (error: unknown) => void;
 }
 
 export function runLoginFlow(options: LoginFlowOptions): void {
-    const { storage, provider, session, controller, failStart } = options;
+    const { storage, provider, session, controller, completeStart, failStart } = options;
     let loginPromise: Promise<unknown>;
     try {
         loginPromise = Promise.resolve(storage.login(provider, controller));
@@ -160,6 +153,7 @@ export function runLoginFlow(options: LoginFlowOptions): void {
         .then(() => {
             session.needsCode = false;
             session.state = "done";
+            completeStart();
         })
         .catch((error: unknown) => {
             session.state = "error";

@@ -48,7 +48,7 @@ export function ClientUsageTable({ clients }: ClientUsageTableProps) {
                                 {number.format(totals.input + totals.output + totals.cache)}
                             </td>
                             <td className="numeric">
-                                <span>{formatDate(client.lastSeen)}</span>
+                                <span>{formatDate(client.lastSeen, "Unknown")}</span>
                                 <small>{relativeTime(client.lastSeen - Date.now())}</small>
                             </td>
                         </tr>

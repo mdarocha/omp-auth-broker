@@ -59,7 +59,6 @@ async function openAuthStorage(): Promise<AuthState> {
 async function startPublicServer({ context, options }: PublicServerOptions): Promise<Bun.Server<undefined>> {
     return Bun.serve({
         ...options,
-        idleTimeout: 255,
         routes: {
             "/": uiIndex,
             ...buildControlRoutes(context),
@@ -68,6 +67,12 @@ async function startPublicServer({ context, options }: PublicServerOptions): Pro
         },
         fetch(request) {
             return dispatch(request);
+        },
+        error(error) {
+            logger.error("omp-auth-broker request failed", {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return json({ error: "Internal Server Error" }, 500);
         },
     });
 }

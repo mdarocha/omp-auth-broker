@@ -108,6 +108,10 @@ function startLoginFlow(context: ControlContext, provider: OAuthProviderId): Pro
 
     const completeStart = (): void => {
         if (!session.url) {
+            const error = new Error("OAuth provider did not provide an authorization URL");
+            session.state = "error";
+            session.message = error.message;
+            failStart(error);
             return;
         }
         const result: LoginStartResult = {
@@ -119,8 +123,8 @@ function startLoginFlow(context: ControlContext, provider: OAuthProviderId): Pro
         resolveStart(result);
     };
 
-    const controller = buildLoginController({ completeStart, failStart, provider, session });
-    runLoginFlow({ controller, failStart, provider, session, storage: context.storage });
+    const controller = buildLoginController({ completeStart, provider, session });
+    runLoginFlow({ completeStart, controller, failStart, provider, session, storage: context.storage });
 
     return started;
 }

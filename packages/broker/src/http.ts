@@ -19,6 +19,15 @@ export function errorMessage(error: unknown): string {
 }
 
 export async function readJsonBody(request: Request): Promise<unknown> {
+    if (request.headers.get("sec-fetch-site") === "cross-site") {
+        return json({ error: "Cross-site requests are not allowed" }, 403);
+    }
+
+    const contentType = request.headers.get("content-type");
+    if (contentType?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") {
+        return json({ error: "Content-Type must be application/json" }, 415);
+    }
+
     try {
         return await request.json();
     } catch {

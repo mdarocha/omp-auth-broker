@@ -10,6 +10,12 @@
 
   packages = [ pkgs.bun ];
 
+  enterTest = ''
+    bun x prettier --check .
+    bun run check
+    bun run lint
+  '';
+
   git-hooks.hooks = {
     nixfmt.enable = true;
     prettier = {

@@ -11,6 +11,11 @@ type PackageDescriptor = {
     integrity: string;
 };
 
+type ManifestSpec = {
+    path: string;
+    dev: boolean;
+};
+
 const metadataFields = ["dependencies", "optionalDependencies", "os", "cpu", "bin", "peerDependencies"] as const;
 
 function fail(message: string): never {
@@ -145,15 +150,21 @@ function packageMetadata(descriptor: PackageDescriptor, optionalOnly: boolean): 
     return result;
 }
 
-async function manifestDependencies(root: string, path: string): Promise<Record<string, string>> {
-    const manifest = record(JSON.parse(await Bun.file(resolve(root, path)).text()), path);
-    if (manifest.dependencies === undefined) {
-        return {};
+async function manifestDependencies(root: string, spec: ManifestSpec): Promise<Record<string, string>> {
+    const manifest = record(JSON.parse(await Bun.file(resolve(root, spec.path)).text()), spec.path);
+    const dependencies =
+        manifest.dependencies === undefined ? {} : stringMap(manifest.dependencies, `${spec.path} dependencies`);
+    if (!spec.dev) {
+        return dependencies;
     }
-    return stringMap(manifest.dependencies, `${path} dependencies`);
+    const devDependencies =
+        manifest.devDependencies === undefined
+            ? {}
+            : stringMap(manifest.devDependencies, `${spec.path} devDependencies`);
+    return { ...dependencies, ...devDependencies };
 }
 
-async function convert(lockPath: string, root: string): Promise<JsonRecord> {
+async function convert(lockPath: string, root: string, manifests: ManifestSpec[]): Promise<JsonRecord> {
     const lock = record(Bun.JSON5.parse(await Bun.file(lockPath).text()), "bun.lock");
     if (lock.lockfileVersion !== 1) {
         fail(`expected Bun lockfileVersion 1, got ${JSON.stringify(lock.lockfileVersion)}`);
@@ -178,16 +189,9 @@ async function convert(lockPath: string, root: string): Promise<JsonRecord> {
     }
 
     const dependencies: Record<string, string> = {};
-    addDependencies(
-        dependencies,
-        await manifestDependencies(root, "packages/broker/package.json"),
-        "packages/broker/package.json",
-    );
-    addDependencies(
-        dependencies,
-        await manifestDependencies(root, "packages/ui/package.json"),
-        "packages/ui/package.json",
-    );
+    for (const spec of manifests) {
+        addDependencies(dependencies, await manifestDependencies(root, spec), spec.path);
+    }
 
     const reached = new Map<string, boolean>();
     const queue: Array<{ name: string; optional: boolean }> = Object.keys(dependencies).map((name) => ({
@@ -254,14 +258,34 @@ async function convert(lockPath: string, root: string): Promise<JsonRecord> {
     };
 }
 
+function parseManifests(value: string): ManifestSpec[] {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+        fail("dependency-root manifests argument must be a non-empty JSON array");
+    }
+    return parsed.map((entry, index) => {
+        const context = `dependency-root manifests[${index}]`;
+        const object = record(entry, context);
+        if (typeof object.path !== "string" || typeof object.dev !== "boolean") {
+            fail(`${context} must have a string "path" and a boolean "dev"`);
+        }
+        return { path: object.path, dev: object.dev };
+    });
+}
+
 const lockPath = Bun.argv[2];
 if (lockPath === undefined) {
     fail("expected the bun.lock path as the first argument");
 }
 const root = Bun.argv[3] ?? dirname(resolve(lockPath));
+const manifestsArg = Bun.argv[4];
+if (manifestsArg === undefined) {
+    fail("expected a JSON array of dependency-root manifests as the third argument");
+}
+const manifests = parseManifests(manifestsArg);
 
 try {
-    console.log(JSON.stringify(await convert(lockPath, root)));
+    console.log(JSON.stringify(await convert(lockPath, root, manifests)));
 } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;

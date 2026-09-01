@@ -20,7 +20,7 @@ The Usage section reports per-credential provider limits and per-client request 
 
 ![Usage section showing per-credential provider limits and per-client request totals](docs/screenshots/usage.png)
 
-The vault is omp's `~/.omp/agent.db`. Set `PI_CONFIG_DIR` before starting the broker to use an isolated vault. `/v1/*` is transparently proxied to an in-process upstream broker.
+The vault is omp's own credential database at `~/.omp/agent/agent.db`. `/v1/*` is transparently proxied to an in-process upstream broker.
 
 ## CLI
 
@@ -29,7 +29,15 @@ omp-auth-broker serve --bind=127.0.0.1:8765
 omp-auth-broker token
 ```
 
-`serve` starts the broker and accepts `--bind=<host:port>`. Keep the bind address on loopback unless Tailscale limits who can reach it.
+`serve` starts the broker. `--bind=<host:port>` sets the listen address directly; `--settings=<path>` reads a JSON settings file. Keep the bind address on loopback unless Tailscale limits who can reach it.
+
+Settings file keys:
+
+```json
+{ "port": 8765, "hostname": "broker.your-tailnet.ts.net" }
+```
+
+`hostname` is the external name allowed in the `Host` header. Loopback names are always allowed; anything else is refused with `421`. This blocks DNS rebinding, where a hostname an attacker controls resolves to your bind address so their page becomes same-origin. It is not authentication.
 
 `token` exists because some omp clients insist on setting a token. This broker does not validate it.
 
@@ -44,12 +52,22 @@ bun run format
 bun run test
 ```
 
+`bun run dev` reads your existing `~/.omp/agent/agent.db`, so the accounts you already authorised in omp show up immediately and stay usable from the CLI — no import or copy step. Both processes talk to the same SQLite file, so log in or remove a provider from either side and the other sees it.
+
+To leave that vault untouched, point the broker at a throwaway one:
+
+```sh
+PI_CONFIG_DIR=/tmp/omp-broker-dev bun run dev -- --bind=127.0.0.1:8765
+```
+
+`bun run test` needs `CHROME_BIN`; the devenv shell exports it automatically.
+
 ## Nix
 
 ```sh
 nix build
 ./result/bin/omp-auth-broker serve --bind=127.0.0.1:8765
-nix flake check --impure
+nix flake check --no-pure-eval
 devenv test
 ```
 

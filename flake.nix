@@ -122,6 +122,7 @@
             ];
             buildPhase = ''
               export HOME=$TMPDIR
+              export CHROME_BIN=${pkgs.chromium}/bin/chromium
               export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
               export PLAYWRIGHT_BROWSERS_PATH=${pkgs.chromium}
               export FONTCONFIG_FILE=${

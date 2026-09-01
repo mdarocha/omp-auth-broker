@@ -5,6 +5,9 @@ let
   inherit (lib) mkEnableOption mkIf mkOption types;
   noAuthenticationWarning =
     "The broker provides no application authentication; expose it only through trusted network controls.";
+  settingsFormat = pkgs.formats.json { };
+  settingsFile = settingsFormat.generate "omp-auth-broker-settings.json"
+    (lib.removeAttrs cfg.settings (lib.optional (cfg.settings.hostname == null) "hostname"));
   stateDirName = lib.removePrefix "/var/lib/" cfg.dataDir;
 in
 {
@@ -17,10 +20,25 @@ in
       description = "Package providing the omp-auth-broker executable. ${noAuthenticationWarning}";
     };
 
-    port = mkOption {
-      type = types.port;
-      default = 8765;
-      description = "TCP port the broker listens on, bound to loopback only. ${noAuthenticationWarning}";
+    settings = mkOption {
+      type = types.submodule {
+        freeformType = settingsFormat.type;
+        options = {
+          port = mkOption {
+            type = types.port;
+            default = 8765;
+            description = "TCP port the broker listens on, bound to loopback only. ${noAuthenticationWarning}";
+          };
+
+          hostname = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = "External name allowed in the Host header for DNS-rebinding protection; this is NOT authentication. ${noAuthenticationWarning}";
+          };
+        };
+      };
+      default = { };
+      description = "Broker settings rendered to JSON. ${noAuthenticationWarning}";
     };
 
     dataDir = mkOption {
@@ -47,8 +65,8 @@ in
         ExecStart = utils.escapeSystemdExecArgs [
           (lib.getExe cfg.package)
           "serve"
-          "--bind"
-          "127.0.0.1:${toString cfg.port}"
+          "--settings"
+          settingsFile
         ];
         DynamicUser = true;
         StateDirectory = stateDirName;

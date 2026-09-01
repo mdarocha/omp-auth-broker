@@ -8,7 +8,12 @@
     };
   };
 
-  packages = [ pkgs.bun ];
+  packages = [
+    pkgs.bun
+    pkgs.chromium
+  ];
+
+  env.CHROME_BIN = "${pkgs.chromium}/bin/chromium";
 
   enterTest = ''
     bun x prettier --check .

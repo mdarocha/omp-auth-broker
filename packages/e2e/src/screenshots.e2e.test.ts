@@ -15,9 +15,12 @@ const LOOPBACK_HOSTNAMES: Record<string, true> = {
 const SCREENSHOTS_DIR = resolve(import.meta.dir, "../../../docs/screenshots");
 
 test("refreshes README screenshots from the live UI", async () => {
-    const chromiumPath = Bun.which("chromium");
+    const chromiumPath = process.env.CHROME_BIN;
     if (!chromiumPath) {
-        throw new Error("System Chromium is required for screenshot E2E tests but was not found on PATH.");
+        throw new Error("CHROME_BIN is required for screenshot E2E tests. Enter the Nix development shell.");
+    }
+    if (!(await Bun.file(chromiumPath).exists())) {
+        throw new Error("CHROME_BIN does not point to a Chromium binary. Enter the Nix development shell.");
     }
 
     let app: TestApp | undefined;

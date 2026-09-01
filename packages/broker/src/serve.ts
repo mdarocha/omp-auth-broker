@@ -1,17 +1,19 @@
 import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
-import { DEFAULT_AUTH_BROKER_BIND, startAuthBroker } from "@oh-my-pi/pi-ai/auth-broker";
 import { getAgentDbPath, logger, VERSION } from "@oh-my-pi/pi-utils";
 import type { AuthBrokerServerHandle } from "@oh-my-pi/pi-ai/auth-broker";
 import { setTransports } from "@oh-my-pi/pi-utils/logger";
+import { startAuthBroker } from "@oh-my-pi/pi-ai/auth-broker";
 
+import { json, rejectDisallowedHost } from "./http";
 import { buildControlRoutes } from "./routes";
 import type { ControlContext } from "./control";
-import { json } from "./http";
+import { loadSettings } from "./settings";
 import { proxyToBroker } from "./proxy";
 import uiIndex from "../../ui/index.html";
 
 export interface ServeFlags {
     bind?: string;
+    settings?: string;
 }
 
 export interface ServeHandle {
@@ -30,6 +32,7 @@ interface AuthState {
 }
 
 interface PublicServerOptions {
+    allowedHostname?: string;
     context: ControlContext;
     options: BindOptions;
 }
@@ -44,6 +47,13 @@ interface ServeResources {
     server: Bun.Server<undefined>;
 }
 
+interface StartServeResourcesOptions {
+    allowedHostname?: string;
+    publicOptions: BindOptions;
+    storage: AuthStorage;
+    store: SqliteAuthCredentialStore;
+}
+
 async function openAuthStorage(): Promise<AuthState> {
     const store = await SqliteAuthCredentialStore.open(getAgentDbPath());
     const storage = new AuthStorage(store);
@@ -56,17 +66,42 @@ async function openAuthStorage(): Promise<AuthState> {
     return { store, storage };
 }
 
-async function startPublicServer({ context, options }: PublicServerOptions): Promise<Bun.Server<undefined>> {
+async function startPublicServer({
+    allowedHostname,
+    context,
+    options,
+}: PublicServerOptions): Promise<Bun.Server<undefined>> {
+    const controlRoutes = buildControlRoutes(context);
     return Bun.serve({
         ...options,
         routes: {
             "/": uiIndex,
-            ...buildControlRoutes(context),
-            "/v1": (request: Request) => proxyToBroker(request, context.brokerBase),
-            "/v1/*": (request: Request) => proxyToBroker(request, context.brokerBase),
+            "/api/login": {
+                POST: withHostCheck(controlRoutes["/api/login"].POST, allowedHostname),
+            },
+            "/api/login/:id/code": {
+                POST: withHostCheck(controlRoutes["/api/login/:id/code"].POST, allowedHostname),
+            },
+            "/api/login/:id/status": {
+                GET: withHostCheck(controlRoutes["/api/login/:id/status"].GET, allowedHostname),
+            },
+            "/api/logout": {
+                POST: withHostCheck(controlRoutes["/api/logout"].POST, allowedHostname),
+            },
+            "/api/providers": {
+                GET: withHostCheck(controlRoutes["/api/providers"].GET, allowedHostname),
+            },
+            "/api/snapshot": {
+                GET: withHostCheck(controlRoutes["/api/snapshot"].GET, allowedHostname),
+            },
+            "/api/usage": {
+                GET: withHostCheck(controlRoutes["/api/usage"].GET, allowedHostname),
+            },
+            "/v1": withHostCheck((request: Request) => proxyToBroker(request, context.brokerBase), allowedHostname),
+            "/v1/*": withHostCheck((request: Request) => proxyToBroker(request, context.brokerBase), allowedHostname),
         },
         fetch(request) {
-            return dispatch(request);
+            return rejectDisallowedHost(request, allowedHostname) ?? dispatch(request);
         },
         error(error) {
             logger.error("omp-auth-broker request failed", {
@@ -127,16 +162,18 @@ function createControlContext(
     };
 }
 
-async function startServeResources(
-    store: SqliteAuthCredentialStore,
-    storage: AuthStorage,
-    publicOptions: BindOptions,
-): Promise<ServeResources> {
+async function startServeResources({
+    allowedHostname,
+    publicOptions,
+    storage,
+    store,
+}: StartServeResourcesOptions): Promise<ServeResources> {
     let broker: AuthBrokerServerHandle | undefined;
     let server: Bun.Server<undefined> | undefined;
     try {
         broker = startBroker(storage);
         server = await startPublicServer({
+            allowedHostname,
             context: createControlContext(store, storage, broker),
             options: publicOptions,
         });
@@ -178,9 +215,15 @@ async function watchForShutdown(close: () => Promise<void>): Promise<never> {
 }
 
 export async function startServe(flags: ServeFlags): Promise<ServeHandle> {
-    const publicOptions = parseBindToServeOptions(flags.bind ?? DEFAULT_AUTH_BROKER_BIND);
+    const settings = await loadSettings(flags.settings);
+    const publicOptions = parseBindToServeOptions(flags.bind ?? `127.0.0.1:${settings.port}`);
     const { store, storage } = await openAuthStorage();
-    const resources = await startServeResources(store, storage, publicOptions);
+    const resources = await startServeResources({
+        allowedHostname: settings.hostname,
+        publicOptions,
+        storage,
+        store,
+    });
     const url = `http://${formatHost(publicOptions.hostname)}:${resources.server.port}`;
     logger.info("omp-auth-broker listening", {
         auth: "none (network-gated)",
@@ -194,6 +237,13 @@ export async function runServe(flags: ServeFlags): Promise<never> {
     setTransports({ console: true, file: false });
     const serve = await startServe(flags);
     return await watchForShutdown(serve.close);
+}
+
+function withHostCheck<RequestType extends Request, ResponseType>(
+    handler: (request: RequestType) => ResponseType,
+    allowedHostname?: string,
+): (request: RequestType) => Response | ResponseType {
+    return (request) => rejectDisallowedHost(request, allowedHostname) ?? handler(request);
 }
 
 function parseBindToServeOptions(bind: string): BindOptions {

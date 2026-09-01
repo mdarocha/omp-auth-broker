@@ -6,9 +6,12 @@ import { startTestApp } from "./fixture";
 import type { TestApp } from "./fixture";
 
 test("connects and removes a mock provider through the browser UI", async () => {
-    const chromiumPath = Bun.which("chromium");
+    const chromiumPath = process.env.CHROME_BIN;
     if (!chromiumPath) {
-        throw new Error("System Chromium is required for UI E2E tests but was not found on PATH.");
+        throw new Error("CHROME_BIN is required for UI E2E tests. Enter the Nix development shell.");
+    }
+    if (!(await Bun.file(chromiumPath).exists())) {
+        throw new Error("CHROME_BIN does not point to a Chromium binary. Enter the Nix development shell.");
     }
 
     let app: TestApp | undefined;

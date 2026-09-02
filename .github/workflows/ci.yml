@@ -25,15 +25,47 @@ jobs:
       - run: nix flake check --no-pure-eval
 
       - name: Refresh README screenshots
-        if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           nix build .#screenshots
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+              exit 0
+            fi
+            if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+              exit 0
+            fi
+            git fetch origin "${{ github.head_ref }}"
+            git checkout "${{ github.head_ref }}"
+            cp result/*.png docs/screenshots/
+            if git diff --quiet -- docs/screenshots; then
+              exit 0
+            fi
+            git add docs/screenshots
+            git commit -m "docs: refresh README screenshots [skip ci]"
+            git push origin "HEAD:${{ github.head_ref }}"
+            exit 0
+          fi
+
+          branch="chore/refresh-screenshots"
+          git fetch origin main
+          git checkout -B "$branch" origin/main
           cp result/*.png docs/screenshots/
           if git diff --quiet -- docs/screenshots; then
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/screenshots
           git commit -m "docs: refresh README screenshots [skip ci]"
-          git push
+          git push --force origin "HEAD:$branch"
+
+          if [ -z "$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number')" ]; then
+            gh pr create --base main --head "$branch" \
+              --title "docs: refresh README screenshots" \
+              --body "Automated screenshot refresh from the live UI. Merge manually."
+          fi

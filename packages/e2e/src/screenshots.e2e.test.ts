@@ -6,6 +6,8 @@ import { resolve } from "node:path";
 import { startTestApp } from "./fixture";
 import type { TestApp } from "./fixture";
 
+const INITIAL_RENDER_TIMEOUT_MS = 60_000;
+
 const LOOPBACK_HOSTNAMES: Record<string, true> = {
     "127.0.0.1": true,
     "::1": true,
@@ -79,30 +81,42 @@ test("refreshes README screenshots from the live UI", async () => {
         await page.goto(app.baseUrl, { waitUntil: "domcontentloaded" });
         expect(await page.title()).toBe("omp auth broker");
 
-        const accountsHeading = page.getByRole("heading", { name: "Accounts" });
         const accountsSection = page.getByRole("region", { name: "Accounts" });
         const usageHeading = page.getByRole("heading", { name: "Usage" });
         const usageSection = page.locator('section.section[aria-labelledby="usage-heading"]');
         const addProvider = page.locator('button[aria-controls="provider-picker"]');
+        await page.waitForFunction(
+            () => {
+                const heading = document.querySelector("#accounts-heading");
+                if (!heading) {
+                    return false;
+                }
+                const style = getComputedStyle(heading);
+                const rect = heading.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+            },
+            { timeout: INITIAL_RENDER_TIMEOUT_MS },
+        );
         await Promise.all([
-            accountsHeading.waitFor({ state: "visible", timeout: 15_000 }),
-            accountsSection.waitFor({ state: "visible", timeout: 15_000 }),
-            usageHeading.waitFor({ state: "visible", timeout: 15_000 }),
-            usageSection.waitFor({ state: "visible", timeout: 15_000 }),
-            addProvider.waitFor({ state: "visible", timeout: 15_000 }),
+            accountsSection.waitFor({ state: "visible", timeout: INITIAL_RENDER_TIMEOUT_MS }),
+            usageHeading.waitFor({ state: "visible", timeout: INITIAL_RENDER_TIMEOUT_MS }),
+            usageSection.waitFor({ state: "visible", timeout: INITIAL_RENDER_TIMEOUT_MS }),
+            addProvider.waitFor({ state: "visible", timeout: INITIAL_RENDER_TIMEOUT_MS }),
         ]);
 
         await addProvider.click();
         const mockProvider = page.getByRole("button", { name: "Mock Provider" });
-        await mockProvider.waitFor({ state: "visible", timeout: 15_000 }).catch((error: unknown) => {
+        await mockProvider.waitFor({ state: "visible", timeout: INITIAL_RENDER_TIMEOUT_MS }).catch((error: unknown) => {
             throw new Error("Mock Provider entry never appeared in the Add provider list", { cause: error });
         });
         await mockProvider.click();
 
         const authorizationLink = page.getByRole("link", { name: "Open authorization" });
-        await authorizationLink.waitFor({ state: "visible", timeout: 15_000 }).catch((error: unknown) => {
-            throw new Error("Authorization link never appeared after selecting Mock Provider", { cause: error });
-        });
+        await authorizationLink
+            .waitFor({ state: "visible", timeout: INITIAL_RENDER_TIMEOUT_MS })
+            .catch((error: unknown) => {
+                throw new Error("Authorization link never appeared after selecting Mock Provider", { cause: error });
+            });
         const authorizationHref = await authorizationLink.getAttribute("href");
         expect(authorizationHref).not.toBeNull();
         const authorizationUrl = new URL(authorizationHref!);

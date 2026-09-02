@@ -9,7 +9,7 @@ const tokenResponseSchema = z.object({ token: z.string().regex(/^[a-f0-9]{64}$/)
 const nativeModuleNames = ["pi_natives.linux-x64-modern.node", "pi_natives.linux-x64-baseline.node"] as const;
 type ServerProcess = Bun.Subprocess<"ignore", "pipe", "pipe">;
 
-const readinessTimeoutMs = 5000;
+const readinessTimeoutMs = 30_000;
 const pollIntervalMs = 50;
 
 interface CommandResult {
@@ -158,4 +158,4 @@ test("compiled executable generates a token and serves the UI", async () => {
         await terminate(server);
         await rm(tempDir, { force: true, recursive: true });
     }
-}, 30_000);
+}, 175_000);

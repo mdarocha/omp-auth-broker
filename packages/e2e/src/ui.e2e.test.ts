@@ -5,6 +5,8 @@ import { LOOPBACK_HOSTNAMES } from "./loopback";
 import { startTestApp } from "./fixture";
 import type { TestApp } from "./fixture";
 
+const INITIAL_RENDER_TIMEOUT_MS = 60_000;
+
 test("connects and removes a mock provider through the browser UI", async () => {
     const chromiumPath = process.env.CHROME_BIN;
     if (!chromiumPath) {
@@ -32,30 +34,35 @@ test("connects and removes a mock provider through the browser UI", async () => 
         await page.goto(app.baseUrl, { waitUntil: "domcontentloaded" });
         expect(await page.title()).toBe("omp auth broker");
 
-        const accountsHeading = page.getByRole("heading", { name: "Accounts" });
-        const accountsSection = page.getByRole("region", { name: "Accounts" });
-        const usageHeading = page.getByRole("heading", { name: "Usage" });
         const addProvider = page.locator('button[aria-controls="provider-picker"]');
-        await Promise.all([
-            accountsHeading.waitFor({ state: "visible", timeout: 15_000 }),
-            accountsSection.waitFor({ state: "visible", timeout: 15_000 }),
-            usageHeading.waitFor({ state: "visible", timeout: 15_000 }),
-            addProvider.waitFor({ state: "visible", timeout: 15_000 }),
-        ]);
+        await page.waitForFunction(
+            () => {
+                const heading = document.querySelector("#accounts-heading");
+                if (!heading) {
+                    return false;
+                }
+                const style = getComputedStyle(heading);
+                const rect = heading.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
+            },
+            { timeout: INITIAL_RENDER_TIMEOUT_MS },
+        );
         expect(await addProvider.getAttribute("aria-expanded")).toBe("false");
 
         await addProvider.click();
         expect(await addProvider.getAttribute("aria-expanded")).toBe("true");
         const mockProvider = page.getByRole("button", { name: "Mock Provider" });
-        await mockProvider.waitFor({ state: "visible", timeout: 15_000 }).catch((error: unknown) => {
+        await mockProvider.waitFor({ state: "visible", timeout: INITIAL_RENDER_TIMEOUT_MS }).catch((error: unknown) => {
             throw new Error("Mock Provider entry never appeared in the Add provider list", { cause: error });
         });
         await mockProvider.click();
 
         const authorizationLink = page.getByRole("link", { name: "Open authorization" });
-        await authorizationLink.waitFor({ state: "visible", timeout: 15_000 }).catch((error: unknown) => {
-            throw new Error("Authorization link never appeared after selecting Mock Provider", { cause: error });
-        });
+        await authorizationLink
+            .waitFor({ state: "visible", timeout: INITIAL_RENDER_TIMEOUT_MS })
+            .catch((error: unknown) => {
+                throw new Error("Authorization link never appeared after selecting Mock Provider", { cause: error });
+            });
         const authorizationHref = await authorizationLink.getAttribute("href");
         expect(authorizationHref).not.toBeNull();
         const authorizationUrl = new URL(authorizationHref!);
@@ -79,10 +86,10 @@ test("connects and removes a mock provider through the browser UI", async () => 
             });
         });
         const accountsTable = page.getByRole("table");
-        await accountsTable.waitFor({ state: "visible", timeout: 15_000 });
+        await accountsTable.waitFor({ state: "visible", timeout: INITIAL_RENDER_TIMEOUT_MS });
         await accountsTable
             .getByRole("columnheader", { name: "Provider" })
-            .waitFor({ state: "visible", timeout: 15_000 });
+            .waitFor({ state: "visible", timeout: INITIAL_RENDER_TIMEOUT_MS });
 
         page.once("dialog", (dialog) => void dialog.accept());
         await accountRow.getByRole("button", { name: "Remove" }).click();

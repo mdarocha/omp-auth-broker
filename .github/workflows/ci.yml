@@ -98,9 +98,9 @@ jobs:
               --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | tail -n1)"
 
             if [ -n "$existing_id" ]; then
-              gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$existing_id" -f body=@"$body_file" > /dev/null
+              gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$existing_id" -F body=@"$body_file" > /dev/null
             else
-              gh api -X POST "repos/${{ github.repository }}/issues/$pr_number/comments" -f body=@"$body_file" > /dev/null
+              gh api -X POST "repos/${{ github.repository }}/issues/$pr_number/comments" -F body=@"$body_file" > /dev/null
             fi
             exit 0
           fi

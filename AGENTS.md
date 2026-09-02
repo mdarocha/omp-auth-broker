@@ -56,6 +56,8 @@ The install phase **MUST** copy `pi_natives.*.node` next to the compiled binary.
 
 CI's screenshot-refresh step runs `nix build .#screenshots` — it no longer uses `nix develop`, so the browser suite runs in the identical hermetic sandbox locally and in CI. It is two-fold based on trigger: on `pull_request` (same-repo branches only; forks and `dependabot[bot]` are skipped since their `GITHUB_TOKEN` is read-only) it commits straight to `github.head_ref`. On `push` to `main` — which a branch ruleset blocks from direct pushes — it resets a single `chore/refresh-screenshots` branch to `origin/main`, force-pushes the new screenshots, and opens at most one PR against `main` (checked via `gh pr list` first); that PR is merged manually, never auto-merged.
 
+`GITHUB_TOKEN`-authored commits and PRs (the screenshot-refresh branch/PR included) **NEVER** trigger new workflow runs — this is GitHub's loop-prevention, not a bug. `chore/refresh-screenshots` therefore opens with no Check run and shows "blocked" until a human manually re-runs `✅ Lint & test` (`workflow_dispatch`, ref `chore/refresh-screenshots`) or pushes a commit to it from a real account; only then does the required status check populate and the PR become mergeable.
+
 `packages/ui/src/fonts/*.woff2` are vendored Geist and JetBrains Mono variable-font files (OFL-licensed), loaded via local `@font-face` rules in `app.css`. The UI has zero external network dependencies; `index.html` carries no Google Fonts `<link>`.
 
 ## Verification

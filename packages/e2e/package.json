@@ -8,7 +8,7 @@
     "lint:fix": "oxlint --config oxlint.config.ts --fix ."
   },
   "devDependencies": {
-    "@oh-my-pi/pi-utils": "18.0.6",
+    "@oh-my-pi/pi-utils": "18.0.11",
     "@playwright/test": "1.62.1",
     "ky": "2.1.0",
     "zod": "4.5.4"

@@ -79,7 +79,7 @@ export async function startTestApp(): Promise<TestApp> {
     const close = createClose(resources);
     try {
         const mockProvider = setupMockProvider(resources);
-        resources.serve = await startServe({ bind: "127.0.0.1:0" });
+        resources.serve = await startServe({ port: 0 });
         return { baseUrl: resources.serve.url, close, mockProvider };
     } catch (error) {
         await close();

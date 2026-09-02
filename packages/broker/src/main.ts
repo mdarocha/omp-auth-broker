@@ -4,12 +4,11 @@ import { runServe } from "./serve";
 import { runToken } from "./token";
 
 const usage = `Usage:
-  omp-auth-broker serve [--settings=<path>] [--bind=<host:port>]
+  omp-auth-broker serve [--settings=<path>]
   omp-auth-broker token [--regenerate] [--json]`;
 
 interface ServeCommand {
     action: "serve";
-    bind?: string;
     settings?: string;
 }
 
@@ -21,7 +20,6 @@ interface TokenCommand {
 type Command = ServeCommand | TokenCommand;
 
 const cliOptions = {
-    bind: { type: "string" },
     settings: { type: "string" },
     regenerate: { type: "boolean" },
     json: { type: "boolean" },
@@ -31,10 +29,10 @@ function parseArgs(argv: string[]): Command | undefined {
     const [action, ...args] = argv;
     try {
         const { values } = parseNodeArgs({ args, options: cliOptions, strict: true });
-        if (action === "serve" && !values.regenerate && !values.json && values.bind !== "" && values.settings !== "") {
-            return { action, bind: values.bind, settings: values.settings };
+        if (action === "serve" && !values.regenerate && !values.json && values.settings !== "") {
+            return { action, settings: values.settings };
         }
-        if (action === "token" && values.bind === undefined && values.settings === undefined) {
+        if (action === "token" && values.settings === undefined) {
             return {
                 action,
                 regenerate: values.regenerate ?? false,
@@ -63,7 +61,7 @@ async function main(): Promise<void> {
 
 async function dispatchCommand(command: Command): Promise<void> {
     if (command.action === "serve") {
-        await runServe({ bind: command.bind, settings: command.settings });
+        await runServe({ settings: command.settings });
         return;
     }
     await runToken(command);

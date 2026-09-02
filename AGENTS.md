@@ -11,6 +11,8 @@ The broker serves the UI and open `/api/*` control API, and transparently proxie
 
 The broker wiring is trimmed from `packages/coding-agent/src/cli/auth-broker-cli.ts` upstream. When upgrading `@oh-my-pi` dependencies, re-diff that upstream file rather than reimplementing provider, credential, refresh, or broker behavior locally.
 
+The `serve` command accepts only `--settings=<path>`. That JSON file carries `port` (default `8765`) and the optional `hostname`; `packages/broker/src/serve.ts` binds `LOOPBACK_HOSTNAME` unconditionally. `startServe` takes parsed `BrokerSettings`, so tests bind an ephemeral port with `startServe({ port: 0 })` and only `runServe` reads the file.
+
 `nix/module.nix` exports the NixOS service as `services.omp-auth-broker` with exactly four options: `enable`, `package`, `dataDir` (default `/var/lib/omp-auth-broker`), and `settings`. `settings.port` defaults to `8765`; `settings.hostname` defaults to `null` and, when set, is the external name accepted in the Host header for DNS-rebinding protection, not authentication. The unit always binds `127.0.0.1` using the configured port; the address is not configurable, and the module never touches `networking.firewall`.
 
 ## Security invariants
@@ -19,14 +21,14 @@ The broker wiring is trimmed from `packages/coding-agent/src/cli/auth-broker-cli
 - The service **MUST** be exposed only on loopback or behind a reachability-restricting network gateway such as Tailscale. **NEVER** bind it directly to a publicly reachable interface.
 - OAuth login is UI-only through `/api/login`. **NEVER** add a login route to `/v1/*`.
 - The shared credential vault is omp's own `~/.omp/agent/agent.db`, resolved through `getAgentDbPath()`. Set `PI_CONFIG_DIR` to isolate a development or test vault; do not introduce another default vault.
-- The bind address is hardcoded to loopback; there is no `openFirewall` option and the module never opens a firewall port.
+- The listen address is hardcoded to loopback and the CLI exposes no bind flag; **NEVER** add one. There is no `openFirewall` option and the module never opens a firewall port.
 
 ## Commands
 
 ```sh
 # Workspace dependencies and local artifacts
 bun install
-bun run dev -- --bind=127.0.0.1:8765
+bun run dev
 bun run check
 bun run build-ui
 bun run build
@@ -39,7 +41,7 @@ bun --cwd packages/broker ./src/main.ts token --json
 
 # Build and run the Nix binary
 nix build
-./result/bin/omp-auth-broker serve --bind=127.0.0.1:8765
+./result/bin/omp-auth-broker serve
 ```
 
 ## Nix build invariants

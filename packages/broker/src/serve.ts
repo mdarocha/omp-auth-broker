@@ -5,25 +5,22 @@ import { setTransports } from "@oh-my-pi/pi-utils/logger";
 import { startAuthBroker } from "@oh-my-pi/pi-ai/auth-broker";
 
 import { json, rejectDisallowedHost } from "./http";
+import type { BrokerSettings } from "./settings";
 import { buildControlRoutes } from "./routes";
 import type { ControlContext } from "./control";
 import { loadSettings } from "./settings";
 import { proxyToBroker } from "./proxy";
 import uiIndex from "../../ui/index.html";
 
+const LOOPBACK_HOSTNAME = "127.0.0.1";
+
 export interface ServeFlags {
-    bind?: string;
     settings?: string;
 }
 
 export interface ServeHandle {
     url: string;
     close: () => Promise<void>;
-}
-
-interface BindOptions {
-    hostname: string;
-    port: number;
 }
 
 interface AuthState {
@@ -34,7 +31,7 @@ interface AuthState {
 interface PublicServerOptions {
     allowedHostname?: string;
     context: ControlContext;
-    options: BindOptions;
+    port: number;
 }
 
 interface CleanupState {
@@ -49,7 +46,7 @@ interface ServeResources {
 
 interface StartServeResourcesOptions {
     allowedHostname?: string;
-    publicOptions: BindOptions;
+    port: number;
     storage: AuthStorage;
     store: SqliteAuthCredentialStore;
 }
@@ -69,11 +66,12 @@ async function openAuthStorage(): Promise<AuthState> {
 async function startPublicServer({
     allowedHostname,
     context,
-    options,
+    port,
 }: PublicServerOptions): Promise<Bun.Server<undefined>> {
     const controlRoutes = buildControlRoutes(context);
     return Bun.serve({
-        ...options,
+        hostname: LOOPBACK_HOSTNAME,
+        port,
         routes: {
             "/": uiIndex,
             "/api/login": {
@@ -164,7 +162,7 @@ function createControlContext(
 
 async function startServeResources({
     allowedHostname,
-    publicOptions,
+    port,
     storage,
     store,
 }: StartServeResourcesOptions): Promise<ServeResources> {
@@ -175,7 +173,7 @@ async function startServeResources({
         server = await startPublicServer({
             allowedHostname,
             context: createControlContext(store, storage, broker),
-            options: publicOptions,
+            port,
         });
         return { broker, server };
     } catch (error) {
@@ -214,17 +212,15 @@ async function watchForShutdown(close: () => Promise<void>): Promise<never> {
     return await new Promise<never>(() => {});
 }
 
-export async function startServe(flags: ServeFlags): Promise<ServeHandle> {
-    const settings = await loadSettings(flags.settings);
-    const publicOptions = parseBindToServeOptions(flags.bind ?? `127.0.0.1:${settings.port}`);
+export async function startServe(settings: BrokerSettings): Promise<ServeHandle> {
     const { store, storage } = await openAuthStorage();
     const resources = await startServeResources({
         allowedHostname: settings.hostname,
-        publicOptions,
+        port: settings.port,
         storage,
         store,
     });
-    const url = `http://${formatHost(publicOptions.hostname)}:${resources.server.port}`;
+    const url = `http://${LOOPBACK_HOSTNAME}:${resources.server.port}`;
     logger.info("omp-auth-broker listening", {
         auth: "none (network-gated)",
         ui: "/",
@@ -235,7 +231,7 @@ export async function startServe(flags: ServeFlags): Promise<ServeHandle> {
 
 export async function runServe(flags: ServeFlags): Promise<never> {
     setTransports({ console: true, file: false });
-    const serve = await startServe(flags);
+    const serve = await startServe(await loadSettings(flags.settings));
     return await watchForShutdown(serve.close);
 }
 
@@ -244,27 +240,6 @@ function withHostCheck<RequestType extends Request, ResponseType>(
     allowedHostname?: string,
 ): (request: RequestType) => Response | ResponseType {
     return (request) => rejectDisallowedHost(request, allowedHostname) ?? handler(request);
-}
-
-function parseBindToServeOptions(bind: string): BindOptions {
-    const bracketedMatch = /^\[([^\]]+)\]:(\d+)$/.exec(bind);
-    const unbracketedMatch = /^([^:\s]+):(\d+)$/.exec(bind);
-    const match = bracketedMatch ?? unbracketedMatch;
-    if (!match) {
-        throw new Error(`Invalid bind address ${JSON.stringify(bind)}; expected host:port`);
-    }
-
-    const [, hostname, portString] = match;
-    const port = Number(portString);
-    if (!Number.isSafeInteger(port) || port < 0 || port > 65_535) {
-        throw new Error(`Invalid bind port ${JSON.stringify(portString)}`);
-    }
-
-    return { hostname, port };
-}
-
-function formatHost(hostname: string): string {
-    return hostname.includes(":") ? `[${hostname}]` : hostname;
 }
 
 function dispatch(request: Request): Response {

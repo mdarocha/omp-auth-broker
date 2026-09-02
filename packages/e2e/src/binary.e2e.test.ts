@@ -138,8 +138,11 @@ test("compiled executable generates a token and serves the UI", async () => {
         expect(token.exitCode, token.stderr).toBe(0);
         tokenResponseSchema.parse(JSON.parse(token.stdout));
 
+        const settingsPath = join(tempDir, "settings.json");
+        await Bun.write(settingsPath, JSON.stringify({ port: 0 }));
+
         server = Bun.spawn({
-            cmd: [executablePath, "serve", "--bind=127.0.0.1:0"],
+            cmd: [executablePath, "serve", `--settings=${settingsPath}`],
             env,
             stdin: "ignore",
             stderr: "pipe",

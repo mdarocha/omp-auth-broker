@@ -6,7 +6,8 @@
 
 ## Security
 
-**There is no application authentication on any route.** Network reachability is the only gate: use loopback or Tailscale. Do not expose this service directly to a public network.
+> [!CAUTION]
+> 🛑 **There is no application authentication on any route.** Network reachability is the only gate: use loopback or Tailscale. Do not expose this service directly to a public network.
 
 Anyone who can reach the service can use the UI, `/api/*`, and `/v1/*`. Cross-site requests to `/api/*` receive `403`, and requests without a JSON content type receive `415`. Those checks are CSRF hardening, not authentication.
 
@@ -25,11 +26,11 @@ The vault is omp's own credential database at `~/.omp/agent/agent.db`. `/v1/*` i
 ## CLI
 
 ```sh
-omp-auth-broker serve --bind=127.0.0.1:8765
+omp-auth-broker serve --settings=/etc/omp-auth-broker/settings.json
 omp-auth-broker token
 ```
 
-`serve` starts the broker. `--bind=<host:port>` sets the listen address directly; `--settings=<path>` reads a JSON settings file. Keep the bind address on loopback unless Tailscale limits who can reach it.
+`serve` starts the broker on `127.0.0.1`, port `8765` by default. The listen address is always loopback and cannot be changed; `--settings=<path>` reads a JSON settings file that sets the port and the allowed external hostname. Reach the broker from other machines through Tailscale or another gateway that restricts who can connect, never by binding a public interface.
 
 Settings file keys:
 
@@ -45,7 +46,7 @@ Settings file keys:
 
 ```sh
 bun install
-bun run dev -- --bind=127.0.0.1:8765
+bun run dev
 bun run check
 bun run lint
 bun run format
@@ -57,7 +58,7 @@ bun run test
 To leave that vault untouched, point the broker at a throwaway one:
 
 ```sh
-PI_CONFIG_DIR=/tmp/omp-broker-dev bun run dev -- --bind=127.0.0.1:8765
+PI_CONFIG_DIR=/tmp/omp-broker-dev bun run dev
 ```
 
 `bun run test` needs `CHROME_BIN`; the devenv shell exports it automatically.
@@ -66,7 +67,7 @@ PI_CONFIG_DIR=/tmp/omp-broker-dev bun run dev -- --bind=127.0.0.1:8765
 
 ```sh
 nix build
-./result/bin/omp-auth-broker serve --bind=127.0.0.1:8765
+./result/bin/omp-auth-broker serve
 nix flake check --no-pure-eval
 devenv test
 ```
@@ -81,9 +82,12 @@ Import `nixosModules.default` from the flake. The module has exactly four option
 services.omp-auth-broker = {
   enable = true;
   package = omp-auth-broker.packages.${pkgs.stdenv.hostPlatform.system}.default;
-  port = 8765;
   dataDir = "/var/lib/omp-auth-broker";
+  settings = {
+    port = 8765;
+    hostname = "broker.your-tailnet.ts.net";
+  };
 };
 ```
 
-`port` defaults to `8765`; `dataDir` defaults to `/var/lib/omp-auth-broker` and sets `PI_CONFIG_DIR`. The service always binds to `127.0.0.1` and never opens a firewall. It runs as a hardened systemd `DynamicUser`.
+`settings` is rendered to a JSON file and passed to `serve --settings`; it is freeform, so keys beyond `port` and `hostname` pass through. `settings.port` defaults to `8765` and `settings.hostname` defaults to `null`. `dataDir` defaults to `/var/lib/omp-auth-broker` and sets `PI_CONFIG_DIR`. The service always binds to `127.0.0.1` and never opens a firewall. It runs as a hardened systemd `DynamicUser`.

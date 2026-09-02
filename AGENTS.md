@@ -52,6 +52,14 @@ nix build
 
 The install phase **MUST** copy `pi_natives.*.node` next to the compiled binary. `@oh-my-pi/pi-natives`'s loader resolves the native addon from `node_modules` only in non-compiled Bun processes; a `bun build --compile` binary is detected via `import.meta.url` and only searches `~/.omp/natives/<version>/` and the directory containing `process.execPath`. Shipping both CPU variants (`modern`/`baseline`) next to the binary satisfies the latter without depending on a pre-populated `~/.omp/natives` cache on the host.
 
+`checks.e2e` is `e2eBuild` in `flake.nix`: a single sandboxed derivation running the full `packages/e2e` suite (`bun test --max-concurrency=1`) with no ambient nixpkgs and no host network — Chromium, the broker server, and the mock provider all run loopback-only, and its `installPhase` copies `docs/screenshots/*.png` into `$out/screenshots`. `packages.screenshots` is a trivial `runCommand` that copies those PNGs out of `e2eBuild` — Nix reuses the already-built `e2eBuild` store path, so `nix build .#screenshots` **NEVER** reruns the e2e suite when `checks.e2e` already built it. `packages.screenshots` **MUST** stay a thin consumer of `e2eBuild`; **NEVER** give it its own `buildPhase` that re-runs `bun test`.
+
+CI's screenshot-refresh step runs `nix build .#screenshots` — it no longer uses `nix develop`, so the browser suite runs in the identical hermetic sandbox locally and in CI. It is two-fold based on trigger: on `pull_request` (same-repo branches only; forks and `dependabot[bot]` are skipped since their `GITHUB_TOKEN` is read-only) it commits straight to `github.head_ref`. On `push` to `main` — which a branch ruleset blocks from direct pushes — it resets a single `chore/refresh-screenshots` branch to `origin/main`, force-pushes the new screenshots, and opens at most one PR against `main` (checked via `gh pr list` first); that PR is merged manually, never auto-merged.
+
+`GITHUB_TOKEN`-authored commits and PRs (the screenshot-refresh branch/PR included) **NEVER** trigger new workflow runs — this is GitHub's loop-prevention, not a bug. `chore/refresh-screenshots` therefore opens with no Check run and shows "blocked" until a human manually re-runs `✅ Lint & test` (`workflow_dispatch`, ref `chore/refresh-screenshots`) or pushes a commit to it from a real account; only then does the required status check populate and the PR become mergeable.
+
+`packages/ui/src/fonts/*.woff2` are vendored Geist and JetBrains Mono variable-font files (OFL-licensed), loaded via local `@font-face` rules in `app.css`. The UI has zero external network dependencies; `index.html` carries no Google Fonts `<link>`.
+
 ## Verification
 
 With a development server running on `127.0.0.1:8765`:

@@ -1,3 +1,19 @@
+@font-face {
+    font-family: "Geist";
+    font-style: normal;
+    font-weight: 300 700;
+    font-display: swap;
+    src: url("./fonts/geist-latin-variable.woff2") format("woff2");
+}
+
+@font-face {
+    font-family: "JetBrains Mono";
+    font-style: normal;
+    font-weight: 400 600;
+    font-display: swap;
+    src: url("./fonts/jetbrains-mono-latin-variable.woff2") format("woff2");
+}
+
 :root {
     --bg: #000;
     --bg-elev: #0a0a0c;

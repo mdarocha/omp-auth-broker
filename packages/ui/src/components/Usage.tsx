@@ -12,10 +12,7 @@ export function Usage() {
     return (
         <section className="section" aria-labelledby="usage-heading">
             <div className="section__head section__head--usage">
-                <div>
-                    <p className="section__index">02 / Meter</p>
-                    <h2 id="usage-heading">Usage</h2>
-                </div>
+                <h2 id="usage-heading">Usage</h2>
                 {usage.phase === "ready" && usage.data.generatedAt && (
                     <p className="updated">Updated {relativeTime(usage.data.generatedAt - now)}</p>
                 )}

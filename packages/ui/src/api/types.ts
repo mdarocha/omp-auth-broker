@@ -168,4 +168,12 @@ export const loginStatusResultSchema = z
 
 export type LoginStatusResult = z.infer<typeof loginStatusResultSchema>;
 
+export const versionSchema = z
+    .object({
+        commit: z.string(),
+    })
+    .passthrough();
+
+export type Version = z.infer<typeof versionSchema>;
+
 export type AsyncState<T> = { phase: "loading" } | { phase: "ready"; data: T } | { phase: "error"; message: string };

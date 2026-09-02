@@ -1,5 +1,12 @@
-import type { LoginStartResult, LoginStatusResult, Provider, Snapshot, Usage } from "./types";
-import { loginStartResultSchema, loginStatusResultSchema, providersSchema, snapshotSchema, usageSchema } from "./types";
+import type { LoginStartResult, LoginStatusResult, Provider, Snapshot, Usage, Version } from "./types";
+import {
+    loginStartResultSchema,
+    loginStatusResultSchema,
+    providersSchema,
+    snapshotSchema,
+    usageSchema,
+    versionSchema,
+} from "./types";
 import type { z } from "zod";
 
 export function errorMessage(error: unknown): string {
@@ -67,6 +74,10 @@ export async function getSnapshot(): Promise<Snapshot> {
 
 export async function getUsage(): Promise<Usage> {
     return fetchJson("/api/usage", usageSchema);
+}
+
+export async function getVersion(): Promise<Version> {
+    return fetchJson("/api/version", versionSchema);
 }
 
 export async function startLogin(providerId: string): Promise<LoginStartResult> {

@@ -37,19 +37,29 @@ export function ClientUsageTable({ clients }: ClientUsageTableProps) {
                     );
                     return (
                         <tr key={client.installId}>
-                            <td>
+                            <td data-label="Client">
                                 <span>{client.hostname || "Unnamed client"}</span>
                                 <small className="mono">{client.installId}</small>
                             </td>
-                            <td>{client.providers.map((item) => item.provider).join(", ") || "—"}</td>
-                            <td className="numeric">{number.format(totals.requests)}</td>
-                            <td className="numeric">{number.format(totals.input)}</td>
-                            <td className="numeric">{number.format(totals.output)}</td>
-                            <td className="numeric">{number.format(totals.cache)}</td>
-                            <td className="numeric numeric--strong">
+                            <td data-label="Providers">
+                                {client.providers.map((item) => item.provider).join(", ") || "—"}
+                            </td>
+                            <td className="numeric" data-label="Calls">
+                                {number.format(totals.requests)}
+                            </td>
+                            <td className="numeric" data-label="Input">
+                                {number.format(totals.input)}
+                            </td>
+                            <td className="numeric" data-label="Output">
+                                {number.format(totals.output)}
+                            </td>
+                            <td className="numeric" data-label="Cache">
+                                {number.format(totals.cache)}
+                            </td>
+                            <td className="numeric numeric--strong" data-label="Total tokens">
                                 {number.format(totals.input + totals.output + totals.cache)}
                             </td>
-                            <td className="numeric">
+                            <td className="numeric" data-label="Last seen">
                                 <span>{formatDate(client.lastSeen, "Unknown")}</span>
                                 <small>{relativeTime(client.lastSeen - now)}</small>
                             </td>

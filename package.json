@@ -9,7 +9,7 @@
     "dev": "bun --cwd packages/broker ./src/main.ts serve",
     "check": "bun x tsc --noEmit --project packages/broker/tsconfig.json && bun x tsc --noEmit --project packages/ui/tsconfig.json && bun x tsc --noEmit --project packages/e2e/tsconfig.json",
     "build-ui": "bun build packages/ui/index.html --outdir packages/ui/dist",
-    "build": "bun build packages/broker/src/main.ts --compile --minify --outfile omp-auth-broker",
+    "build": "bun build packages/broker/src/main.ts --compile --minify --define process.env.OMP_AUTH_BROKER_COMMIT=\"'$(git rev-parse --short HEAD 2>/dev/null || echo unknown)'\" --outfile omp-auth-broker",
     "format": "prettier --write .",
     "lint": "bun run --filter '*' lint",
     "test": "bun run --filter '@omp-auth-broker/e2e' test"

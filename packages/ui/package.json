@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@lobehub/icons-static-svg": "1.94.0",
+    "lucide-static": "1.39.0",
     "preact": "10.29.8",
     "zod": "4.5.4"
   },

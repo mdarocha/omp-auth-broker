@@ -2,6 +2,7 @@ import "./app.css";
 import { LoginProvider, useLogin } from "./state/LoginContext";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Accounts } from "./components/Accounts";
+import { BuildInfo } from "./components/BuildInfo";
 import { LoginFlow } from "./components/LoginFlow";
 import { ProviderPicker } from "./components/ProviderPicker";
 import { render } from "preact";
@@ -22,26 +23,10 @@ function AppShell() {
 
     return (
         <div className="shell">
-            <header className="masthead">
-                <div>
-                    <p className="eyebrow">Shared credential plane</p>
-                    <h1>
-                        auth<span aria-hidden="true">/</span>broker
-                    </h1>
-                </div>
-                <div className="connection" aria-label="Connection security">
-                    <span className="connection__mark" aria-hidden="true" />
-                    <span>Network gated</span>
-                </div>
-            </header>
-
             <main>
                 <section className="section" aria-labelledby="accounts-heading">
                     <div className="section__head">
-                        <div>
-                            <p className="section__index">01 / Vault</p>
-                            <h2 id="accounts-heading">Accounts</h2>
-                        </div>
+                        <h2 id="accounts-heading">Accounts</h2>
                         <button
                             className="button button--primary"
                             type="button"
@@ -61,8 +46,7 @@ function AppShell() {
                 <Usage />
             </main>
             <footer>
-                <span>omp auth broker</span>
-                <span>Shared vault · No application authentication</span>
+                <BuildInfo />
             </footer>
         </div>
     );

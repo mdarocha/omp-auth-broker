@@ -19,7 +19,12 @@ Open the server root to manage the shared vault. The UI lists accounts, starts p
 
 Add provider opens a picker listing every registered OAuth provider. OAuth login is available only through the UI's `/api/login`, never through `/v1`.
 
+<details>
+<summary>Add provider screenshot</summary>
+
 ![The Add provider picker listing the available OAuth providers](docs/screenshots/add-provider.png)
+
+</details>
 
 The vault is omp's own credential database at `~/.omp/agent/agent.db`. `/v1/*` is transparently proxied to an in-process upstream broker.
 
@@ -94,3 +99,5 @@ services.omp-auth-broker = {
 ```
 
 `settings` is rendered to a JSON file and passed to `serve --settings`; it is freeform, so keys beyond `port` and `hostname` pass through. `settings.port` defaults to `8765` and `settings.hostname` defaults to `null`. `dataDir` defaults to `/var/lib/omp-auth-broker` and sets `PI_CONFIG_DIR`. The service always binds to `127.0.0.1` and never opens a firewall. It runs as a hardened systemd `DynamicUser`.
+
+For a full walkthrough — provisioning the host, configuring Tailscale with a scoped ACL policy, exposing the broker as a Tailscale Service, and pointing `omp` installs elsewhere at it — see [`docs/getting-started.md`](docs/getting-started.md).

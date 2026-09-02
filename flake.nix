@@ -107,6 +107,8 @@
               cp docs/screenshots/*.png $out/screenshots/
             '';
           };
+
+          buildCommit = self.shortRev or (builtins.substring 0 7 (self.dirtyShortRev or "unknown"));
         in
         {
           devenv.shells.default = {
@@ -124,7 +126,9 @@
               export HOME=$TMPDIR
               mkdir node_modules
               cp -R ${nodeModules}/node_modules/. node_modules/
-              bun build ./packages/broker/src/main.ts --compile --minify --outfile omp-auth-broker
+              bun build ./packages/broker/src/main.ts --compile --minify \
+                --define process.env.OMP_AUTH_BROKER_COMMIT="'${buildCommit}'" \
+                --outfile omp-auth-broker
             '';
             installPhase = ''
               mkdir -p $out/bin

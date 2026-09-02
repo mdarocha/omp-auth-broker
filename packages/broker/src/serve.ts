@@ -115,6 +115,9 @@ async function startPublicServer({
             "/api/usage": {
                 GET: routeHandler(controlRoutes["/api/usage"].GET),
             },
+            "/api/version": {
+                GET: routeHandler(controlRoutes["/api/version"].GET),
+            },
             "/v1": routeHandler((request: Request) => proxyToBroker(request, context.brokerBase)),
             "/v1/*": routeHandler((request: Request) => proxyToBroker(request, context.brokerBase)),
         },

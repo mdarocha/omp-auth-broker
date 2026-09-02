@@ -1,4 +1,5 @@
 import { AsyncSection } from "./AsyncSection";
+import { ProviderIcon } from "./ProviderIcon";
 import { useLogin } from "../state/LoginContext";
 import { useVault } from "../state/VaultContext";
 
@@ -8,10 +9,7 @@ export function ProviderPicker() {
 
     return (
         <div className="provider-picker" id="provider-picker">
-            <div className="provider-picker__head">
-                <h3>Choose a provider</h3>
-                <p>Start its authorization flow in this browser.</p>
-            </div>
+            <h3>Choose a provider</h3>
             <AsyncSection
                 state={providers}
                 loading={<output className="notice">Loading providers…</output>}
@@ -31,10 +29,8 @@ export function ProviderPicker() {
                         {data.map((provider) => (
                             <li key={provider.id}>
                                 <button type="button" onClick={() => void beginLogin(provider)}>
+                                    <ProviderIcon providerId={provider.id} />
                                     <span>{provider.name}</span>
-                                    <span className="provider-list__meta">
-                                        {provider.pasteCode ? "Paste code" : provider.id}
-                                    </span>
                                 </button>
                             </li>
                         ))}

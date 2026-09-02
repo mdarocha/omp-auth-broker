@@ -12,6 +12,7 @@ import { fetchBroker, forwardUpstream } from "./proxy";
 import { isRecord, json, readJsonBody } from "./http";
 import type { LoginSession, LoginStartResult } from "./login-session";
 import type { ControlContext } from "./control";
+import { getBuildCommit } from "./build-info";
 
 export function buildControlRoutes(context: ControlContext) {
     return {
@@ -36,7 +37,14 @@ export function buildControlRoutes(context: ControlContext) {
         "/api/usage": {
             GET: () => usageRoute(context),
         },
+        "/api/version": {
+            GET: versionRoute,
+        },
     };
+}
+
+async function versionRoute(): Promise<Response> {
+    return json({ commit: await getBuildCommit() });
 }
 
 function providersRoute(): Response {

@@ -18,6 +18,7 @@ interface VaultContextValue {
 }
 
 const VaultContext = createContext<VaultContextValue | undefined>(undefined);
+const usageRefreshIntervalMs = 30_000;
 
 function useVaultData() {
     const [snapshot, setSnapshot] = useState<AsyncState<Snapshot>>({ phase: "loading" });
@@ -58,6 +59,15 @@ function useVaultData() {
         void reloadUsage();
         void reloadProviders();
     }, [reloadProviders, reloadSnapshot, reloadUsage]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (document.visibilityState === "visible") {
+                void reloadUsage();
+            }
+        }, usageRefreshIntervalMs);
+        return () => clearInterval(interval);
+    }, [reloadUsage]);
 
     return { snapshot, providers, usage, reloadSnapshot, reloadProviders, reloadUsage, refreshVault };
 }

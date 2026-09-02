@@ -58,7 +58,9 @@ CI's screenshot-refresh step runs `nix build .#screenshots` — it no longer use
 
 `GITHUB_TOKEN`-authored commits and PRs (the screenshot-refresh branch/PR included) **NEVER** trigger new workflow runs — this is GitHub's loop-prevention, not a bug. `chore/refresh-screenshots` therefore opens with no Check run and shows "blocked" until a human manually re-runs `✅ Lint & test` (`workflow_dispatch`, ref `chore/refresh-screenshots`) or pushes a commit to it from a real account; only then does the required status check populate and the PR become mergeable.
 
-`packages/ui/src/fonts/*.woff2` are vendored Geist and JetBrains Mono variable-font files (OFL-licensed), loaded via local `@font-face` rules in `app.css`. The UI has zero external network dependencies; `index.html` carries no Google Fonts `<link>`.
+`packages/ui/src/fonts/*.woff2` are vendored Geist and JetBrains Mono variable-font files (OFL-licensed), loaded via local `@font-face` rules in `app.css`. The UI has zero external network dependencies; `index.html` carries no Google Fonts `<link>`. Provider brand marks come from the `simple-icons` package, bundled as inline SVG paths rather than fetched from a CDN.
+
+Both `packages.default` and the root `build` script bake this repository's short commit hash into the compiled binary via `bun build --compile --define process.env.OMP_AUTH_BROKER_COMMIT="'<hash>'"`; `packages/broker/src/build-info.ts` reads that at runtime and falls back to shelling out to `git rev-parse --short HEAD` for uncompiled `bun run dev` runs. **NEVER** read the commit from a bind-mounted `.git` directory at runtime — the compiled binary must work standalone.
 
 ## Verification
 
@@ -69,9 +71,10 @@ curl -sf http://127.0.0.1:8765/v1/healthz
 curl -sf http://127.0.0.1:8765/v1/snapshot
 curl -sf http://127.0.0.1:8765/api/providers
 curl -sf http://127.0.0.1:8765/api/usage
+curl -sf http://127.0.0.1:8765/api/version
 ```
 
-Check the UI at `http://127.0.0.1:8765/`: Accounts must show credential state and refresh timing, Add must list providers, Login must display its OAuth flow, and Usage must show credential and 30-day client usage.
+Check the UI at `http://127.0.0.1:8765/`: Accounts must show credential state and refresh timing, Add must list providers, Login must display its OAuth flow, and Usage must show credential and 30-day client usage (refreshing itself every 30s). There is no header or numbered subheads; the only footer content is the short build commit from `/api/version`, sourced from `packages/broker/src/build-info.ts`.
 
 ## Style
 

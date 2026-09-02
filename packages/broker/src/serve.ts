@@ -95,6 +95,9 @@ async function startPublicServer({
             "/api/usage": {
                 GET: withHostCheck(controlRoutes["/api/usage"].GET, allowedHostname),
             },
+            "/api/version": {
+                GET: withHostCheck(controlRoutes["/api/version"].GET, allowedHostname),
+            },
             "/v1": withHostCheck((request: Request) => proxyToBroker(request, context.brokerBase), allowedHostname),
             "/v1/*": withHostCheck((request: Request) => proxyToBroker(request, context.brokerBase), allowedHostname),
         },

@@ -1,5 +1,7 @@
 import { formatDate, relativeTime } from "../lib/format";
 import type { UsageAmount, UsageLimit, UsageReport } from "../api/types";
+import { ProviderIcon } from "./ProviderIcon";
+import { StatusBadge } from "./StatusBadge";
 
 const compactNumber = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
@@ -42,17 +44,30 @@ function formatAmount(value: number | undefined, unit: string): string {
     return `${compactNumber.format(value)}${unit === "unknown" ? "" : ` ${unit}`}`;
 }
 
+const STATUS_EXPLANATIONS: Record<string, string> = {
+    ok: "Usage is within the reported limit.",
+    warning: "Usage is approaching the reported limit.",
+    exhausted: "The reported limit has been used up.",
+    unknown: "The provider did not report a status for this limit.",
+};
+
 function reportRow(report: UsageReport, limit: UsageLimit) {
     const fraction = usedFraction(limit.amount);
+    const status = limit.status || "unknown";
     return (
         <tr key={`${report.provider}-${report.fetchedAt}-${limit.id}`}>
-            <td className="provider-cell">{report.provider}</td>
-            <td>{reportIdentity(report)}</td>
-            <td>
+            <td className="provider-cell" data-label="Provider">
+                <span className="provider-cell__inner">
+                    <ProviderIcon providerId={report.provider} />
+                    {report.provider}
+                </span>
+            </td>
+            <td data-label="Identity">{reportIdentity(report)}</td>
+            <td data-label="Limit">
                 {limit.label}
                 {limit.window?.label && <small>{limit.window.label}</small>}
             </td>
-            <td className="numeric usage-amount">
+            <td className="numeric usage-amount" data-label="Used / limit">
                 <span>
                     {formatAmount(limit.amount.used, limit.amount.unit)} /{" "}
                     {formatAmount(limit.amount.limit, limit.amount.unit)}
@@ -65,7 +80,7 @@ function reportRow(report: UsageReport, limit: UsageLimit) {
                     />
                 )}
             </td>
-            <td className="numeric">
+            <td className="numeric" data-label="Reset">
                 {limit.window?.resetsAt ? (
                     <>
                         <span>{formatDate(limit.window.resetsAt, "—")}</span>
@@ -75,8 +90,12 @@ function reportRow(report: UsageReport, limit: UsageLimit) {
                     "—"
                 )}
             </td>
-            <td>
-                <span className={`status status--${limit.status || "unknown"}`}>{limit.status || "Unknown"}</span>
+            <td data-label="Status">
+                <StatusBadge
+                    kind={status}
+                    label={limit.status || "Unknown"}
+                    explanation={STATUS_EXPLANATIONS[status] ?? STATUS_EXPLANATIONS.unknown}
+                />
             </td>
         </tr>
     );

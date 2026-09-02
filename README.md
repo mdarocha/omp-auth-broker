@@ -68,9 +68,12 @@ PI_CONFIG_DIR=/tmp/omp-broker-dev bun run dev
 ```sh
 nix build
 ./result/bin/omp-auth-broker serve
+nix build .#screenshots
 nix flake check --no-pure-eval
 devenv test
 ```
+
+`nix flake check --no-pure-eval` builds and runs the full browser e2e suite inside the Nix sandbox (`checks.e2e`) — no host network, no ambient toolchain. `nix build .#screenshots` runs only the screenshot capture in that same sandbox and writes `accounts.png`/`usage.png` to `result/`; CI copies them back into `docs/screenshots`. Both commands exercise the identical hermetic environment locally and in CI.
 
 The Nix dependency closure is derived from `bun.lock` automatically. There is no hash to regenerate when dependencies change. This uses import-from-derivation (IFD), so IFD must be allowed.
 

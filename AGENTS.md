@@ -52,6 +52,10 @@ nix build
 
 The install phase **MUST** copy `pi_natives.*.node` next to the compiled binary. `@oh-my-pi/pi-natives`'s loader resolves the native addon from `node_modules` only in non-compiled Bun processes; a `bun build --compile` binary is detected via `import.meta.url` and only searches `~/.omp/natives/<version>/` and the directory containing `process.execPath`. Shipping both CPU variants (`modern`/`baseline`) next to the binary satisfies the latter without depending on a pre-populated `~/.omp/natives` cache on the host.
 
+`checks.e2e` and `packages.screenshots` both build the e2e suite (`packages/e2e`) inside the Nix sandbox via a shared `mkE2eDerivation` in `flake.nix`: no ambient nixpkgs, no host network — Chromium, the broker server, and the mock provider all run loopback-only inside the build. `checks.e2e` runs the full suite (`bun test --max-concurrency=1`); `packages.screenshots` runs only `screenshots.e2e.test.ts` and copies the resulting PNGs out of `docs/screenshots` into `$out`. CI's screenshot-refresh step runs `nix build .#screenshots` and copies `result/*.png` back into `docs/screenshots` — it no longer uses `nix develop`, so the browser suite always runs in the same hermetic sandbox locally and in CI.
+
+`packages/ui/src/fonts/*.woff2` are vendored Geist and JetBrains Mono variable-font files (OFL-licensed), loaded via local `@font-face` rules in `app.css`. The UI has zero external network dependencies; `index.html` carries no Google Fonts `<link>`.
+
 ## Verification
 
 With a development server running on `127.0.0.1:8765`:

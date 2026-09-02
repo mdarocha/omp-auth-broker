@@ -51,6 +51,11 @@ export function startMockMcpTokenServer(): MockMcpTokenServer {
 }
 
 export async function seedVaultCredential(provider: string, credential: McpStoredOAuthCredential): Promise<void> {
+    // GetAgentDbPath() resolves through PI_CONFIG_DIR.
+    // Requiring it here ensures this only touches the isolated temp vault the e2e fixture sets up.
+    if (!process.env.PI_CONFIG_DIR) {
+        throw new Error("seedVaultCredential must only run with PI_CONFIG_DIR set to an isolated test vault");
+    }
     const store = await SqliteAuthCredentialStore.open(getAgentDbPath());
     const storage = new AuthStorage(store);
     try {

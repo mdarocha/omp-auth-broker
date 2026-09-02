@@ -68,8 +68,10 @@ jobs:
             git read-tree --empty
             cp result/overview.png result/add-provider.png .
             git add -- overview.png add-provider.png
-            git commit -m "docs: preview screenshots for PR #$pr_number [skip ci]"
-            git push --force origin "HEAD:refs/heads/$preview_branch"
+            if ! git diff --cached --quiet; then
+              git commit -m "docs: preview screenshots for PR #$pr_number [skip ci]"
+              git push --force origin "HEAD:refs/heads/$preview_branch"
+            fi
             commit_sha="$(git rev-parse HEAD)"
             raw_base="https://raw.githubusercontent.com/${{ github.repository }}/$commit_sha"
 

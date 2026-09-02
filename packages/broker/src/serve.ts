@@ -1,6 +1,7 @@
 import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
 import { getAgentDbPath, logger, VERSION } from "@oh-my-pi/pi-utils";
 import type { AuthBrokerServerHandle } from "@oh-my-pi/pi-ai/auth-broker";
+import type { AuthStorageOptions } from "@oh-my-pi/pi-ai";
 import { setTransports } from "@oh-my-pi/pi-utils/logger";
 import { startAuthBroker } from "@oh-my-pi/pi-ai/auth-broker";
 
@@ -53,18 +54,21 @@ interface StartServeResourcesOptions {
     store: SqliteAuthCredentialStore;
 }
 
-async function openAuthStorage(): Promise<AuthState> {
+async function openAuthStorage(authStorageOptions?: AuthStorageOptions): Promise<AuthState> {
     const store = await SqliteAuthCredentialStore.open(getAgentDbPath());
     for (const entry of store.listAuthCredentials()) {
         if (isManagedMcpOAuthCredentialId(entry.provider) && entry.credential.type === "oauth") {
             cacheMcpRefreshMaterial(entry.provider, entry.credential);
         }
     }
+    // `authStorageOptions` can override any of these defaults (e.g. the e2e screenshot suite overrides `fetchUsageReports`).
+    // The mcp_oauth:* refresh override must stay the default: the headless broker never loads the MCP manager that would otherwise provide it.
     const storage = new AuthStorage(store, {
         refreshOAuthCredential: (...args) => {
             const [provider, credentialId, credential, signal] = args;
             return refreshBrokerOAuthCredential(provider, credential, { rowId: credentialId, signal, store });
         },
+        ...authStorageOptions,
     });
     try {
         await storage.reload();
@@ -224,8 +228,13 @@ async function watchForShutdown(close: () => Promise<void>): Promise<never> {
     return await new Promise<never>(() => {});
 }
 
-export async function startServe(settings: BrokerSettings): Promise<ServeHandle> {
-    const { store, storage } = await openAuthStorage();
+// `authStorageOptions` is not part of `BrokerSettings` and is never read from `--settings=<path>`.
+// It exists so embedders (e.g. the e2e screenshot suite) can seed `AuthStorage` hooks like `fetchUsageReports`.
+export async function startServe(
+    settings: BrokerSettings,
+    authStorageOptions?: AuthStorageOptions,
+): Promise<ServeHandle> {
+    const { store, storage } = await openAuthStorage(authStorageOptions);
     const resources = await startServeResources({
         allowedHostname: settings.hostname,
         port: settings.port,

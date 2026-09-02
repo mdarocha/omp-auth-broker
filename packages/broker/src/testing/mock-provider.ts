@@ -26,10 +26,14 @@ interface MockTokenResponse {
 
 export function registerMockProvider({ serverUrl }: RegisterMockProviderOptions): { unregister: () => void } {
     const baseUrl = normalizeServerUrl(serverUrl);
+    let loginSequence = 0;
     const provider: OAuthProviderInterface = {
         id: MOCK_PROVIDER_ID,
         name: "Mock Provider",
-        login: async (callbacks) => login(baseUrl, callbacks),
+        login: async (callbacks) => {
+            loginSequence += 1;
+            return login(baseUrl, callbacks, loginSequence);
+        },
         refreshToken: async (credentials, signal) => {
             const tokens = await requestToken(
                 baseUrl,
@@ -91,7 +95,7 @@ function parseAuthorizationCallback(redirect: string, state: string): string {
     return code;
 }
 
-async function login(serverUrl: string, callbacks: OAuthLoginCallbacks): Promise<OAuthCredentials> {
+async function login(serverUrl: string, callbacks: OAuthLoginCallbacks, sequence: number): Promise<OAuthCredentials> {
     const state = randomBytes(16).toString("hex");
     const verifier = randomBytes(96).toString("base64url");
     const authorizeUrl = buildAuthorizeUrl(serverUrl, state, verifier);
@@ -110,7 +114,7 @@ async function login(serverUrl: string, callbacks: OAuthLoginCallbacks): Promise
         }),
         callbacks.signal,
     );
-    return toCredentials(tokens);
+    return toCredentials(tokens, undefined, sequence);
 }
 
 function parseMockTokenResponse(body: string): MockTokenResponse {
@@ -160,12 +164,18 @@ function isMockTokenResponse(value: unknown): value is MockTokenResponse {
     );
 }
 
-function toCredentials(tokens: MockTokenResponse, previous?: OAuthCredentials): OAuthCredentials {
+function toCredentials(tokens: MockTokenResponse, previous?: OAuthCredentials, sequence = 1): OAuthCredentials {
     return {
         ...previous,
         access: tokens.access_token,
-        email: previous?.email ?? MOCK_EMAIL,
+        email: previous?.email ?? mockEmailForSequence(sequence),
         expires: Date.now() + tokens.expires_in * 1000,
         refresh: tokens.refresh_token,
     };
+}
+
+// The first login always gets the well-known MOCK_EMAIL identity so existing assertions stay stable.
+// Later logins get distinct identities so screenshots can show multiple accounts for one provider.
+function mockEmailForSequence(sequence: number): string {
+    return sequence <= 1 ? MOCK_EMAIL : `mock-user-${sequence}@localhost`;
 }

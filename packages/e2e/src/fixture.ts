@@ -1,4 +1,5 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import type { AuthStorageOptions } from "@oh-my-pi/pi-ai";
 import { join } from "node:path";
 import type { MockProviderServer } from "../../broker/src/testing/mock-provider-server";
 import { refreshDirsFromEnv } from "@oh-my-pi/pi-utils";
@@ -75,18 +76,21 @@ function createClose(resources: TestAppResources): () => Promise<void> {
 }
 
 export interface StartTestAppOptions {
+    /** Runs after the mock provider is registered but before the broker starts, to seed the vault DB directly. */
     seed?: () => Promise<void>;
+    /** Forwarded to `AuthStorage` for tests that need to seed usage/credential hooks. */
+    authStorageOptions?: AuthStorageOptions;
 }
 
-export async function startTestApp(options?: StartTestAppOptions): Promise<TestApp> {
+export async function startTestApp(options: StartTestAppOptions = {}): Promise<TestApp> {
     const resources: TestAppResources = await isolateTestEnvironment();
     const close = createClose(resources);
     try {
         const mockProvider = setupMockProvider(resources);
-        if (options?.seed) {
+        if (options.seed) {
             await options.seed();
         }
-        resources.serve = await startServe({ port: 0 });
+        resources.serve = await startServe({ port: 0 }, options.authStorageOptions);
         return { baseUrl: resources.serve.url, close, mockProvider };
     } catch (error) {
         await close();

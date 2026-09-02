@@ -30,24 +30,60 @@ test("connects and removes a mock provider through the browser UI", async () => 
             await (Object.hasOwn(LOOPBACK_HOSTNAMES, hostname) ? route.continue() : route.abort());
         });
         page = await context.newPage();
+        const consoleMessages: string[] = [];
+        page.on("console", (message) => consoleMessages.push(`${message.type()}: ${message.text()}`));
+        page.on("pageerror", (error) => consoleMessages.push(`pageerror: ${error.message}`));
 
         await page.goto(app.baseUrl, { waitUntil: "domcontentloaded" });
         expect(await page.title()).toBe("omp auth broker");
 
         const addProvider = page.locator('button[aria-controls="provider-picker"]');
-        await page.waitForFunction(
-            () => {
-                const heading = document.querySelector("#accounts-heading");
-                if (!heading) {
-                    return false;
-                }
-                const style = getComputedStyle(heading);
-                const rect = heading.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
-            },
-            undefined,
-            { timeout: INITIAL_RENDER_TIMEOUT_MS },
-        );
+        await page
+            .waitForFunction(
+                () => {
+                    const heading = document.querySelector("#accounts-heading");
+                    if (!heading) {
+                        return false;
+                    }
+                    const style = getComputedStyle(heading);
+                    const rect = heading.getBoundingClientRect();
+                    return (
+                        rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none"
+                    );
+                },
+                undefined,
+                { timeout: INITIAL_RENDER_TIMEOUT_MS },
+            )
+            .catch(async (error: unknown) => {
+                const diagnostics = await page!
+                    .evaluate(() => {
+                        const chain: string[] = [];
+                        let node: Element | null = document.querySelector("#accounts-heading");
+                        while (node) {
+                            const style = getComputedStyle(node);
+                            const rect = node.getBoundingClientRect();
+                            chain.push(
+                                `${node.tagName}${node.id ? `#${node.id}` : ""}${node.className ? `.${node.className.replace(/\s+/g, ".")}` : ""} display=${style.display} visibility=${style.visibility} opacity=${style.opacity} rect=${rect.width}x${rect.height}`,
+                            );
+                            node = node.parentElement;
+                        }
+                        return {
+                            readyState: document.readyState,
+                            viewport: { width: window.innerWidth, height: window.innerHeight },
+                            devicePixelRatio: window.devicePixelRatio,
+                            stylesheetCount: document.styleSheets.length,
+                            htmlLength: document.documentElement.outerHTML.length,
+                            ancestorChain: chain,
+                        };
+                    })
+                    .catch((evalError: unknown) => ({
+                        evalFailed: evalError instanceof Error ? evalError.message : String(evalError),
+                    }));
+                throw new Error(
+                    `Accounts heading render diagnostics: ${JSON.stringify(diagnostics)}; console: ${JSON.stringify(consoleMessages)}`,
+                    { cause: error },
+                );
+            });
         expect(await addProvider.getAttribute("aria-expanded")).toBe("false");
 
         await addProvider.click();

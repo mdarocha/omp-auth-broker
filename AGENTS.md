@@ -64,7 +64,7 @@ On `pull_request` (same-repo branches only; forks and `dependabot[bot]` are skip
 
 `packages/e2e/src/screenshots.e2e.test.ts` normalizes every volatile, time-dependent DOM value (absolute timestamps, "in 3 secs"/"5 mins ago" subtitles, the Usage "Updated ... ago" label) to fixed placeholders immediately before each capture, so the PNGs are byte-identical across runs when the UI itself hasn't changed — verified by forcing an independent rebuild of `checks.e2e` and diffing output hashes. This is what makes the `cmp -s` skip check above meaningful instead of always seeing a diff.
 
-`packages/ui/src/fonts/*.woff2` are vendored Geist and JetBrains Mono variable-font files (OFL-licensed), loaded via local `@font-face` rules in `app.css`. The UI has zero external network dependencies; `index.html` carries no Google Fonts `<link>`. Provider brand marks come from the `simple-icons` package, bundled as inline SVG paths rather than fetched from a CDN.
+`packages/ui/src/fonts/*.woff2` are vendored Geist and JetBrains Mono variable-font files (OFL-licensed), loaded via local `@font-face` rules in `app.css`. The UI has zero external network dependencies; `index.html` carries no Google Fonts `<link>`. Provider brand marks come from `@lobehub/icons-static-svg` (curated specifically for AI/LLM inference vendors — plain `simple-icons` has no OpenAI mark and misses most inference providers), imported as raw SVG text (`with { type: "text" }`) and rendered through the shared `<Icon>` component; providers with no dedicated mark fall back to a plain initial (`ProviderIcon.tsx`). Interface icons (e.g. the account-removal trash icon) come from `lucide-static` through the same `<Icon>` component. Both are MIT-licensed static SVG sets pulled from `node_modules`, never fetched from a CDN.
 
 Both `packages.default` and the root `build` script bake this repository's short commit hash into the compiled binary via `bun build --compile --define process.env.OMP_AUTH_BROKER_COMMIT="'<hash>'"`; `packages/broker/src/build-info.ts` reads that at runtime and falls back to shelling out to `git rev-parse --short HEAD` for uncompiled `bun run dev` runs. **NEVER** read the commit from a bind-mounted `.git` directory at runtime — the compiled binary must work standalone.
 
@@ -84,4 +84,4 @@ Check the UI at `http://127.0.0.1:8765/`: Accounts must show credential state an
 
 ## Style
 
-Keep glue small and direct. Prefer minimal comments, use braces on conditionals, and keep CSS hand-written and minimal rather than adding a styling framework.
+Keep glue small and direct. Prefer minimal comments, use braces on conditionals, and keep CSS hand-written and minimal rather than adding a styling framework. **Never hand-roll icon SVG paths** — source every icon from an existing library (`@lobehub/icons-static-svg` for AI/LLM provider brand marks, `lucide-static` for interface icons) and render it through `packages/ui/src/components/Icon.tsx`.

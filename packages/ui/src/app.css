@@ -309,9 +309,18 @@ p {
     color: var(--fg);
 }
 
-.provider-icon {
+.icon {
+    display: inline-flex;
     flex-shrink: 0;
+}
+
+.icon svg {
     display: block;
+    width: 1rem;
+    height: 1rem;
+}
+
+.provider-icon {
     opacity: 0.85;
 }
 
@@ -326,6 +335,7 @@ p {
     color: var(--fg-dim);
     font-family: "JetBrains Mono", monospace;
     font-size: 0.5625rem;
+    line-height: 1;
     font-weight: 600;
     opacity: 1;
 }

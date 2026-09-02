@@ -19,7 +19,12 @@ Open the server root to manage the shared vault. The UI lists accounts, starts p
 
 Add provider opens a picker listing every registered OAuth provider. OAuth login is available only through the UI's `/api/login`, never through `/v1`.
 
+<details>
+<summary>Add provider screenshot</summary>
+
 ![The Add provider picker listing the available OAuth providers](docs/screenshots/add-provider.png)
+
+</details>
 
 The vault is omp's own credential database at `~/.omp/agent/agent.db`. `/v1/*` is transparently proxied to an in-process upstream broker.
 

@@ -1,7 +1,9 @@
 import { formatDate, relativeTime } from "../lib/format";
 import type { Credential } from "../api/types";
+import { Icon } from "./Icon";
 import { ProviderIcon } from "./ProviderIcon";
 import { StatusBadge } from "./StatusBadge";
+import trash from "lucide-static/icons/trash-2.svg" with { type: "text" };
 import { useNow } from "../lib/useNow";
 
 interface AccountRowProps {
@@ -62,20 +64,9 @@ export function AccountRow({ credential, removing, onRemove }: AccountRowProps) 
                     aria-label={removing ? "Removing…" : "Remove"}
                     title={removing ? "Removing…" : "Remove"}
                 >
-                    <TrashIcon />
+                    <Icon svg={trash} />
                 </button>
             </td>
         </tr>
-    );
-}
-
-function TrashIcon() {
-    return (
-        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-            <path
-                fill="currentColor"
-                d="M6 1.5A1.5 1.5 0 0 0 4.5 3v.5H2a.5.5 0 0 0 0 1h.5v9A1.5 1.5 0 0 0 4 15h8a1.5 1.5 0 0 0 1.5-1.5v-9H14a.5.5 0 0 0 0-1h-2.5V3A1.5 1.5 0 0 0 10 1.5H6ZM5.5 3a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v.5h-5V3Zm-1.5 1.5h8v9a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5v-9Zm2.5 2a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0v-5a.5.5 0 0 1 .5-.5Zm3 0a.5.5 0 0 1 .5.5v5a.5.5 0 0 1-1 0v-5a.5.5 0 0 1 .5-.5Z"
-            />
-        </svg>
     );
 }

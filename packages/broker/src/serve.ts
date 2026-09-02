@@ -4,9 +4,11 @@ import type { AuthBrokerServerHandle } from "@oh-my-pi/pi-ai/auth-broker";
 import { setTransports } from "@oh-my-pi/pi-utils/logger";
 import { startAuthBroker } from "@oh-my-pi/pi-ai/auth-broker";
 
+import { cacheMcpRefreshMaterial, isManagedMcpOAuthCredentialId, refreshBrokerOAuthCredential } from "./mcp-refresh";
 import { json, rejectDisallowedHost } from "./http";
-import type { BrokerSettings } from "./settings";
 import { buildControlRoutes } from "./routes";
+
+import type { BrokerSettings } from "./settings";
 import type { ControlContext } from "./control";
 import { loadSettings } from "./settings";
 import { proxyToBroker } from "./proxy";
@@ -53,7 +55,17 @@ interface StartServeResourcesOptions {
 
 async function openAuthStorage(): Promise<AuthState> {
     const store = await SqliteAuthCredentialStore.open(getAgentDbPath());
-    const storage = new AuthStorage(store);
+    for (const entry of store.listAuthCredentials()) {
+        if (isManagedMcpOAuthCredentialId(entry.provider) && entry.credential.type === "oauth") {
+            cacheMcpRefreshMaterial(entry.provider, entry.credential);
+        }
+    }
+    const storage = new AuthStorage(store, {
+        refreshOAuthCredential: (...args) => {
+            const [provider, credentialId, credential, signal] = args;
+            return refreshBrokerOAuthCredential(provider, credential, { rowId: credentialId, signal, store });
+        },
+    });
     try {
         await storage.reload();
     } catch (error) {

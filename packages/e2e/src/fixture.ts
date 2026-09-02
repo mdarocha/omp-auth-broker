@@ -74,11 +74,18 @@ function createClose(resources: TestAppResources): () => Promise<void> {
     return () => (closePromise ??= cleanupTestAppResources(resources));
 }
 
-export async function startTestApp(): Promise<TestApp> {
+export interface StartTestAppOptions {
+    seed?: () => Promise<void>;
+}
+
+export async function startTestApp(options?: StartTestAppOptions): Promise<TestApp> {
     const resources: TestAppResources = await isolateTestEnvironment();
     const close = createClose(resources);
     try {
         const mockProvider = setupMockProvider(resources);
+        if (options?.seed) {
+            await options.seed();
+        }
         resources.serve = await startServe({ port: 0 });
         return { baseUrl: resources.serve.url, close, mockProvider };
     } catch (error) {

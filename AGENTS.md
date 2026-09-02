@@ -9,7 +9,7 @@
 
 The broker serves the UI and open `/api/*` control API, and transparently proxies open `/v1/*` requests to an internal `startAuthBroker` listener. That listener uses `bearerTokens: []`; the public and internal servers share one `AuthStorage` backed by omp's agent database.
 
-The broker wiring is trimmed from `packages/coding-agent/src/cli/auth-broker-cli.ts` upstream. When upgrading `@oh-my-pi` dependencies, re-diff that upstream file rather than reimplementing provider, credential, refresh, or broker behavior locally.
+The broker wiring is trimmed from `packages/coding-agent/src/cli/auth-broker-cli.ts` upstream. Its serve storage must keep the `mcp_oauth:*` refresh override because the headless broker does not load the MCP manager; re-diff the upstream broker and MCP refresh code when upgrading `@oh-my-pi` dependencies.
 
 The `serve` command accepts only `--settings=<path>`. That JSON file carries `port` (default `8765`) and the optional `hostname`; `packages/broker/src/serve.ts` binds `LOOPBACK_HOSTNAME` unconditionally. `startServe` takes parsed `BrokerSettings`, so tests bind an ephemeral port with `startServe({ port: 0 })` and only `runServe` reads the file.
 

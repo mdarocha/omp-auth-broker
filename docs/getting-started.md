@@ -54,7 +54,7 @@ In `configuration.nix`:
 
 The module has exactly four options: `enable`, `package`, `dataDir`, `settings`. `package` defaults to this flake's own build (`omp-auth-broker.packages.<system>.default`) and only needs overriding if you build the broker yourself.
 
-- `dataDir` sets `PI_CONFIG_DIR` for the service. The vault is oh-my-pi's own SQLite credential DB at `$PI_CONFIG_DIR/agent.db`.
+- `dataDir` sets `PI_CONFIG_DIR` for the service. The vault is oh-my-pi's own SQLite credential DB at `$PI_CONFIG_DIR/agent/agent.db`.
 - `settings` is a freeform attrset rendered to the JSON file passed to `serve --settings`. Keys beyond `port` and `hostname` pass through untouched (e.g. `logJson = true;` for structured logs in the journal).
 - `settings.hostname` is the only name accepted in the incoming HTTP `Host` header, besides loopback names. Anything else is rejected with HTTP 421. Set it to the Service's MagicDNS name now — requests proxied in by Tailscale Serve arrive with that `Host` header. This is DNS-rebinding protection, not authentication.
 - The service runs as a hardened systemd `DynamicUser`, binds `127.0.0.1`, and never opens a firewall port. There is no `openFirewall` option here.
@@ -127,41 +127,52 @@ This is a judgment call. Omit it and an admin approves the Service host once, by
 
 You may also define the Service explicitly on the Services page beforehand. If you don't, advertising it creates a pending Service automatically.
 
-## 5. Advertise the broker as a Tailscale Service
+## 5. Advertise the broker as an HTTPS Tailscale Service
 
-Use the native NixOS wrapper rather than hand-writing `tailscale serve` invocations or a huJSON file:
+The broker is HTTP-only. Use Tailscale Serve's HTTPS proxy to terminate TLS at
+the Service and forward plain HTTP over loopback. `services.tailscale.serve`'s
+raw `tcp:<port>` mapping does not configure that HTTPS termination.
 
 ```nix
+{ pkgs, ... }:
 {
-  services.tailscale.serve = {
-    enable = true;
-    services."auth-broker".endpoints."tcp:443" = "https://localhost:8765";
+  systemd.services.omp-auth-broker-tailscale-serve = {
+    after = [
+      "tailscaled.service"
+      "omp-auth-broker.service"
+    ];
+    requires = [
+      "tailscaled.service"
+      "omp-auth-broker.service"
+    ];
+    partOf = [ "tailscaled.service" ];
+    wantedBy = [ "multi-user.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+
+    script = ''
+      ${pkgs.tailscale}/bin/tailscale serve \
+        --service=svc:auth-broker \
+        --https=443 \
+        http://127.0.0.1:8765
+    '';
+
+    postStop = ''
+      ${pkgs.tailscale}/bin/tailscale serve \
+        --service=svc:auth-broker \
+        --https=443 \
+        off
+    '';
   };
 }
 ```
 
-The attribute name must not include the `svc:` prefix — the module adds it.
-
-Only `tcp` is supported as the transport for the public-facing `endpoints` key. The local target may use `http://`, `https://`, or `tcp://` plus host:port.
-
-Equivalent forms, for reference if you are not on NixOS or want to test by hand:
-
-```bash
-tailscale serve --service=svc:auth-broker --https=443 127.0.0.1:8765
-```
-
-```json
-{
-    "version": "0.0.1",
-    "services": {
-        "svc:auth-broker": {
-            "endpoints": {
-                "tcp:443": "https://localhost:8765"
-            }
-        }
-    }
-}
-```
+`--service` configures and advertises the named Service in background mode.
+Tailscale provisions TLS for `https://auth-broker.your-tailnet.ts.net`; the
+broker remains reachable only on `127.0.0.1:8765`.
 
 ## 6. Rebuild
 
@@ -215,15 +226,15 @@ Environment variables, simplest for CI:
 
 ```bash
 export OMP_AUTH_BROKER_URL="https://auth-broker.your-tailnet.ts.net:443"
-export OMP_AUTH_BROKER_TOKEN="$(cat ~/.omp/agent/auth-broker.token)"
+export OMP_AUTH_BROKER_TOKEN="$(cat ~/.omp/auth-broker.token)"
 ```
 
 Token file, simplest for a laptop — the broker never validates the token, so any non-empty random string works:
 
 ```bash
-mkdir -p ~/.omp/agent
-openssl rand -hex 32 > ~/.omp/agent/auth-broker.token
-chmod 600 ~/.omp/agent/auth-broker.token
+mkdir -p ~/.omp
+openssl rand -hex 32 > ~/.omp/auth-broker.token
+chmod 600 ~/.omp/auth-broker.token
 ```
 
 If you have this repo's `omp-auth-broker` binary on hand, `omp-auth-broker token --regenerate` writes the same file for you (`--json` for machine-readable output). Neither approach requires installing this repo's package on every client — the broker host and the oh-my-pi clients are independent; the token file just needs to exist and be non-empty on each client.
@@ -234,10 +245,10 @@ If you have this repo's `omp-auth-broker` binary on hand, `omp-auth-broker token
 auth:
     broker:
         url: "https://auth-broker.your-tailnet.ts.net:443"
-        token: "!cat ~/.omp/agent/auth-broker.token"
+        token: "!cat ~/.omp/auth-broker.token"
 ```
 
-`!command` is oh-my-pi's config convention for shelling out to read a secret, but the loader for this particular value does not execute it on its own. If you use a `!`-prefixed value, resolve it the same way the rest of your oh-my-pi config resolves such values. Otherwise leave `token` out of `config.yml` entirely and rely on the token file.
+`!command` values are resolved by oh-my-pi, so this reads the token at startup. Leave `token` out of `config.yml` if you prefer the fallback token file instead.
 
 ## 10. Troubleshooting
 

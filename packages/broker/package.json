@@ -11,6 +11,6 @@
   },
   "dependencies": {
     "@oh-my-pi/pi-ai": "18.0.6",
-    "@oh-my-pi/pi-utils": "18.0.6"
+    "@oh-my-pi/pi-utils": "18.0.11"
   }
 }

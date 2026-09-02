@@ -45,6 +45,7 @@ test("connects and removes a mock provider through the browser UI", async () => 
                 const rect = heading.getBoundingClientRect();
                 return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
             },
+            undefined,
             { timeout: INITIAL_RENDER_TIMEOUT_MS },
         );
         expect(await addProvider.getAttribute("aria-expanded")).toBe("false");

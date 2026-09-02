@@ -95,6 +95,7 @@ test("refreshes README screenshots from the live UI", async () => {
                 const rect = heading.getBoundingClientRect();
                 return rect.width > 0 && rect.height > 0 && style.visibility !== "hidden" && style.display !== "none";
             },
+            undefined,
             { timeout: INITIAL_RENDER_TIMEOUT_MS },
         );
         await Promise.all([

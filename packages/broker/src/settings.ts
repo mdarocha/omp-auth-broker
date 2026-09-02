@@ -7,6 +7,7 @@ export const DEFAULT_PORT = 8765;
 export interface BrokerSettings {
     port: number;
     hostname?: string;
+    logJson?: boolean;
 }
 
 export async function loadSettings(path?: string): Promise<BrokerSettings> {
@@ -37,7 +38,12 @@ async function readSettingsFile(path: string): Promise<Record<string, unknown>> 
 function validateSettings(value: Record<string, unknown>): BrokerSettings {
     const port = validatePort(value.port);
     const hostname = validateHostname(value.hostname);
-    return hostname === undefined ? { port } : { port, hostname };
+    const logJson = validateLogJson(value.logJson);
+    return {
+        port,
+        ...(hostname === undefined ? {} : { hostname }),
+        ...(logJson === undefined ? {} : { logJson }),
+    };
 }
 
 function validatePort(port: unknown): number {
@@ -53,4 +59,11 @@ function validateHostname(hostname: unknown): string | undefined {
         throw new Error('Invalid settings key "hostname": expected a string');
     }
     return hostname;
+}
+
+function validateLogJson(logJson: unknown): boolean | undefined {
+    if (logJson !== undefined && typeof logJson !== "boolean") {
+        throw new Error('Invalid settings key "logJson": expected a boolean');
+    }
+    return logJson;
 }

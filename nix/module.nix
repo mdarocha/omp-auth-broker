@@ -46,6 +46,12 @@ in
             default = null;
             description = "External name allowed in the Host header for DNS-rebinding protection; this is NOT authentication. ${noAuthenticationWarning}";
           };
+
+          logJson = mkOption {
+            type = types.bool;
+            default = false;
+            description = "Emit single-line JSON logs instead of colorized, source-tagged console output.";
+          };
         };
       };
       default = { };

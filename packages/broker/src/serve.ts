@@ -2,16 +2,17 @@ import { AuthStorage, SqliteAuthCredentialStore } from "@oh-my-pi/pi-ai";
 import { getAgentDbPath, logger, VERSION } from "@oh-my-pi/pi-utils";
 import type { AuthBrokerServerHandle } from "@oh-my-pi/pi-ai/auth-broker";
 import type { AuthStorageOptions } from "@oh-my-pi/pi-ai";
-import { setTransports } from "@oh-my-pi/pi-utils/logger";
 import { startAuthBroker } from "@oh-my-pi/pi-ai/auth-broker";
 
 import { cacheMcpRefreshMaterial, isManagedMcpOAuthCredentialId, refreshBrokerOAuthCredential } from "./mcp-refresh";
 import { json, rejectDisallowedHost } from "./http";
+import { runAsAuthBroker, setLogFormat } from "./logging";
 import { buildControlRoutes } from "./routes";
 
 import type { BrokerSettings } from "./settings";
 import type { ControlContext } from "./control";
 import { loadSettings } from "./settings";
+import { logIncomingRequest } from "./request-log";
 import { proxyToBroker } from "./proxy";
 import uiIndex from "../../ui/index.html";
 
@@ -85,41 +86,42 @@ async function startPublicServer({
     port,
 }: PublicServerOptions): Promise<Bun.Server<undefined>> {
     const controlRoutes = buildControlRoutes(context);
+    const routeHandler = <RequestType extends Request>(
+        handler: (request: RequestType) => Response | Promise<Response>,
+    ) => withRequestLogging(withHostCheck(handler, allowedHostname));
     return Bun.serve({
         hostname: LOOPBACK_HOSTNAME,
         port,
         routes: {
             "/": uiIndex,
             "/api/login": {
-                POST: withHostCheck(controlRoutes["/api/login"].POST, allowedHostname),
+                POST: routeHandler(controlRoutes["/api/login"].POST),
             },
             "/api/login/:id/code": {
-                POST: withHostCheck(controlRoutes["/api/login/:id/code"].POST, allowedHostname),
+                POST: routeHandler(controlRoutes["/api/login/:id/code"].POST),
             },
             "/api/login/:id/status": {
-                GET: withHostCheck(controlRoutes["/api/login/:id/status"].GET, allowedHostname),
+                GET: routeHandler(controlRoutes["/api/login/:id/status"].GET),
             },
             "/api/logout": {
-                POST: withHostCheck(controlRoutes["/api/logout"].POST, allowedHostname),
+                POST: routeHandler(controlRoutes["/api/logout"].POST),
             },
             "/api/providers": {
-                GET: withHostCheck(controlRoutes["/api/providers"].GET, allowedHostname),
+                GET: routeHandler(controlRoutes["/api/providers"].GET),
             },
             "/api/snapshot": {
-                GET: withHostCheck(controlRoutes["/api/snapshot"].GET, allowedHostname),
+                GET: routeHandler(controlRoutes["/api/snapshot"].GET),
             },
             "/api/usage": {
-                GET: withHostCheck(controlRoutes["/api/usage"].GET, allowedHostname),
+                GET: routeHandler(controlRoutes["/api/usage"].GET),
             },
             "/api/version": {
-                GET: withHostCheck(controlRoutes["/api/version"].GET, allowedHostname),
+                GET: routeHandler(controlRoutes["/api/version"].GET),
             },
-            "/v1": withHostCheck((request: Request) => proxyToBroker(request, context.brokerBase), allowedHostname),
-            "/v1/*": withHostCheck((request: Request) => proxyToBroker(request, context.brokerBase), allowedHostname),
+            "/v1": routeHandler((request: Request) => proxyToBroker(request, context.brokerBase)),
+            "/v1/*": routeHandler((request: Request) => proxyToBroker(request, context.brokerBase)),
         },
-        fetch(request) {
-            return rejectDisallowedHost(request, allowedHostname) ?? dispatch(request);
-        },
+        fetch: routeHandler(dispatch),
         error(error) {
             logger.error("omp-auth-broker request failed", {
                 error: error instanceof Error ? error.message : String(error),
@@ -158,12 +160,14 @@ async function closeResource(operation: (() => unknown) | undefined, state: Clea
 }
 
 function startBroker(storage: AuthStorage): AuthBrokerServerHandle {
-    return startAuthBroker({
-        storage,
-        bind: "127.0.0.1:0",
-        bearerTokens: [],
-        version: VERSION,
-    });
+    return runAsAuthBroker(() =>
+        startAuthBroker({
+            storage,
+            bind: "127.0.0.1:0",
+            bearerTokens: [],
+            version: VERSION,
+        }),
+    );
 }
 
 function createControlContext(
@@ -254,8 +258,9 @@ export async function startServe(
 }
 
 export async function runServe(flags: ServeFlags): Promise<never> {
-    setTransports({ console: true, file: false });
-    const serve = await startServe(await loadSettings(flags.settings));
+    const settings = await loadSettings(flags.settings);
+    setLogFormat(settings.logJson ? "json" : "pretty");
+    const serve = await startServe(settings);
     return await watchForShutdown(serve.close);
 }
 
@@ -264,6 +269,23 @@ function withHostCheck<RequestType extends Request, ResponseType>(
     allowedHostname?: string,
 ): (request: RequestType) => Response | ResponseType {
     return (request) => rejectDisallowedHost(request, allowedHostname) ?? handler(request);
+}
+
+function withRequestLogging<RequestType extends Request>(
+    handler: (request: RequestType) => Response | Promise<Response>,
+): (request: RequestType) => Promise<Response> {
+    return async (request) => {
+        const startedAt = performance.now();
+        const { pathname } = new URL(request.url);
+        try {
+            const response = await handler(request);
+            logIncomingRequest({ method: request.method, path: pathname, startedAt, status: response.status });
+            return response;
+        } catch (error) {
+            logIncomingRequest({ error, method: request.method, path: pathname, startedAt });
+            throw error;
+        }
+    };
 }
 
 function dispatch(request: Request): Response {

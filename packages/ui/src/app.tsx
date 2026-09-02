@@ -1,6 +1,6 @@
 import "./app.css";
 import { LoginProvider, useLogin } from "./state/LoginContext";
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { Accounts } from "./components/Accounts";
 import { LoginFlow } from "./components/LoginFlow";
 import { ProviderPicker } from "./components/ProviderPicker";
@@ -13,10 +13,12 @@ function AppShell() {
     const { login } = useLogin();
     const previousSessionIdRef = useRef<string>("");
 
-    if (login && login.state === "pending" && login.sessionId !== previousSessionIdRef.current) {
-        previousSessionIdRef.current = login.sessionId;
-        setPickerOpen(false);
-    }
+    useEffect(() => {
+        if (login && login.state === "pending" && login.sessionId !== previousSessionIdRef.current) {
+            previousSessionIdRef.current = login.sessionId;
+            setPickerOpen(false);
+        }
+    }, [login]);
 
     return (
         <div className="shell">

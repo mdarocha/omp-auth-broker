@@ -1,5 +1,6 @@
 import { formatDate, relativeTime } from "../lib/format";
 import type { ClientUsage } from "../api/types";
+import { useNow } from "../lib/useNow";
 
 const number = new Intl.NumberFormat("en-US");
 
@@ -8,6 +9,7 @@ interface ClientUsageTableProps {
 }
 
 export function ClientUsageTable({ clients }: ClientUsageTableProps) {
+    const now = useNow();
     return (
         <table>
             <thead>
@@ -49,7 +51,7 @@ export function ClientUsageTable({ clients }: ClientUsageTableProps) {
                             </td>
                             <td className="numeric">
                                 <span>{formatDate(client.lastSeen, "Unknown")}</span>
-                                <small>{relativeTime(client.lastSeen - Date.now())}</small>
+                                <small>{relativeTime(client.lastSeen - now)}</small>
                             </td>
                         </tr>
                     );

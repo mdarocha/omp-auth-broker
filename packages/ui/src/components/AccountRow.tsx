@@ -1,5 +1,6 @@
 import { formatDate, relativeTime } from "../lib/format";
 import type { Credential } from "../api/types";
+import { useNow } from "../lib/useNow";
 
 interface AccountRowProps {
     credential: Credential;
@@ -19,6 +20,7 @@ function identityFor(credential: Credential): string {
 
 export function AccountRow({ credential, removing, onRemove }: AccountRowProps) {
     const disabled = Boolean(credential.disabled || credential.credential.disabled);
+    const now = useNow();
     return (
         <tr>
             <td className="provider-cell">{credential.provider}</td>
@@ -31,9 +33,7 @@ export function AccountRow({ credential, removing, onRemove }: AccountRowProps) 
             </td>
             <td className="numeric">
                 <span>{formatDate(credential.credential.expires, "No expiry")}</span>
-                {credential.credential.expires && (
-                    <small>{relativeTime(credential.credential.expires - Date.now())}</small>
-                )}
+                {credential.credential.expires && <small>{relativeTime(credential.credential.expires - now)}</small>}
             </td>
             <td className="numeric">{credential.rotatesInMs === null ? "—" : relativeTime(credential.rotatesInMs)}</td>
             <td className="action-cell">

@@ -35,10 +35,12 @@ omp-auth-broker token
 Settings file keys:
 
 ```json
-{ "port": 8765, "hostname": "broker.your-tailnet.ts.net" }
+{ "port": 8765, "hostname": "broker.your-tailnet.ts.net", "logJson": false }
 ```
 
 `hostname` is the external name allowed in the `Host` header. Loopback names are always allowed; anything else is refused with `421`. This blocks DNS rebinding, where a hostname an attacker controls resolves to your bind address so their page becomes same-origin. It is not authentication.
+
+Logs are colorized (when the terminal supports it) and tag each line with its source: `[gateway]` for this package's own code (UI, `/api/*`, proxying, CLI), `[auth-broker]` for the vendored internal broker listener that `/v1/*` proxies to. That tag isn't guessed from message wording; it's set once, structurally, around the internal listener's startup and inherited by every request and background timer it runs. Every request is logged both as it's received (`incoming request`) and, where the gateway makes one itself, as it's forwarded (`outgoing request`). Set `logJson: true` to switch every line to single-line JSON instead, for log aggregators; it defaults to `false`.
 
 `token` exists because some omp clients insist on setting a token. This broker does not validate it.
 
@@ -93,4 +95,4 @@ services.omp-auth-broker = {
 };
 ```
 
-`settings` is rendered to a JSON file and passed to `serve --settings`; it is freeform, so keys beyond `port` and `hostname` pass through. `settings.port` defaults to `8765` and `settings.hostname` defaults to `null`. `dataDir` defaults to `/var/lib/omp-auth-broker` and sets `PI_CONFIG_DIR`. The service always binds to `127.0.0.1` and never opens a firewall. It runs as a hardened systemd `DynamicUser`.
+`settings` is rendered to a JSON file and passed to `serve --settings`; it is freeform, so keys beyond `port`, `hostname`, and `logJson` pass through. `settings.port` defaults to `8765`, `settings.hostname` defaults to `null`, and `settings.logJson` defaults to `false` (colorized, source-tagged console logs; set it to `true` for single-line JSON). `dataDir` defaults to `/var/lib/omp-auth-broker` and sets `PI_CONFIG_DIR`. The service always binds to `127.0.0.1` and never opens a firewall. It runs as a hardened systemd `DynamicUser`.

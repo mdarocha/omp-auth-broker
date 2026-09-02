@@ -1,3 +1,4 @@
+import { initLogging } from "./logging";
 import { logger } from "@oh-my-pi/pi-utils";
 import { parseArgs as parseNodeArgs } from "node:util";
 import { runServe } from "./serve";
@@ -46,6 +47,7 @@ function parseArgs(argv: string[]): Command | undefined {
 }
 
 async function main(): Promise<void> {
+    initLogging();
     const command = parseArgs(process.argv.slice(2));
     if (!command) {
         showUsage();

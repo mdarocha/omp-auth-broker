@@ -2,6 +2,7 @@ import { formatDate, relativeTime } from "../lib/format";
 import type { Credential } from "../api/types";
 import { ProviderIcon } from "./ProviderIcon";
 import { StatusBadge } from "./StatusBadge";
+import { useNow } from "../lib/useNow";
 
 interface AccountRowProps {
     credential: Credential;
@@ -21,6 +22,7 @@ function identityFor(credential: Credential): string {
 
 export function AccountRow({ credential, removing, onRemove }: AccountRowProps) {
     const disabled = Boolean(credential.disabled || credential.credential.disabled);
+    const now = useNow();
     return (
         <tr>
             <td className="provider-cell" data-label="Provider">
@@ -46,9 +48,7 @@ export function AccountRow({ credential, removing, onRemove }: AccountRowProps) 
             </td>
             <td className="numeric" data-label="Expires">
                 <span>{formatDate(credential.credential.expires, "No expiry")}</span>
-                {credential.credential.expires && (
-                    <small>{relativeTime(credential.credential.expires - Date.now())}</small>
-                )}
+                {credential.credential.expires && <small>{relativeTime(credential.credential.expires - now)}</small>}
             </td>
             <td className="numeric" data-label="Refresh in">
                 {credential.rotatesInMs === null ? "—" : relativeTime(credential.rotatesInMs)}

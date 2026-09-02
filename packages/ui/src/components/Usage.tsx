@@ -2,17 +2,19 @@ import { AsyncSection } from "./AsyncSection";
 import { ClientUsageTable } from "./ClientUsageTable";
 import { relativeTime } from "../lib/format";
 import { UsageReportTable } from "./UsageReportTable";
+import { useNow } from "../lib/useNow";
 import { useVault } from "../state/VaultContext";
 
 export function Usage() {
     const { usage, reloadUsage } = useVault();
+    const now = useNow();
 
     return (
         <section className="section" aria-labelledby="usage-heading">
             <div className="section__head section__head--usage">
                 <h2 id="usage-heading">Usage</h2>
                 {usage.phase === "ready" && usage.data.generatedAt && (
-                    <p className="updated">Updated {relativeTime(usage.data.generatedAt - Date.now())}</p>
+                    <p className="updated">Updated {relativeTime(usage.data.generatedAt - now)}</p>
                 )}
             </div>
 

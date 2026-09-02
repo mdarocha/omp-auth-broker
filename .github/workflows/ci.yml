@@ -42,15 +42,66 @@ jobs:
             if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
               exit 0
             fi
-            git fetch origin "${{ github.head_ref }}"
-            git checkout "${{ github.head_ref }}"
-            cp result/*.png docs/screenshots/
-            if git diff --quiet -- docs/screenshots; then
+
+            if cmp -s result/overview.png docs/screenshots/overview.png &&
+              cmp -s result/add-provider.png docs/screenshots/add-provider.png; then
               exit 0
             fi
-            git add docs/screenshots
-            git commit -m "docs: refresh README screenshots [skip ci]"
-            git push origin "HEAD:${{ github.head_ref }}"
+
+            # Pushing straight to the PR's head branch (the old approach) moves its HEAD to a new
+            # SHA. A GITHUB_TOKEN push never triggers a new workflow run, so the required status
+            # check never gets reported against that SHA and the PR is stuck "expected" forever.
+            # Posting a PR comment instead never touches the head branch, so the check stays valid.
+            # The screenshots themselves still need to live somewhere linkable, so they're pushed
+            # to a throwaway per-PR branch instead, which GitHub renders via raw.githubusercontent.com.
+            pr_number="${{ github.event.pull_request.number }}"
+            preview_branch="screenshots/pr-$pr_number"
+            marker="<!-- omp-auth-broker:screenshot-preview -->"
+
+            if git fetch origin "$preview_branch:$preview_branch" 2>/dev/null; then
+              git checkout "$preview_branch"
+            else
+              git checkout --orphan "$preview_branch"
+            fi
+            # Clear the index inherited from whatever was checked out before (leftover files stay
+            # on disk, but this runner is thrown away after the job, so only the add below matters).
+            git read-tree --empty
+            cp result/overview.png result/add-provider.png .
+            git add -- overview.png add-provider.png
+            git commit -m "docs: preview screenshots for PR #$pr_number [skip ci]"
+            git push --force origin "HEAD:refs/heads/$preview_branch"
+            commit_sha="$(git rev-parse HEAD)"
+            raw_base="https://raw.githubusercontent.com/${{ github.repository }}/$commit_sha"
+
+            body_file="$(mktemp)"
+            {
+              echo "$marker"
+              echo "### 📸 README screenshots changed"
+              echo
+              echo "Preview built from $commit_sha. This comment is updated in place on later pushes."
+              echo
+              echo "<details>"
+              echo "<summary>Preview</summary>"
+              echo
+              echo "**overview.png**"
+              echo
+              echo "![overview]($raw_base/overview.png)"
+              echo
+              echo "**add-provider.png**"
+              echo
+              echo "![add-provider]($raw_base/add-provider.png)"
+              echo
+              echo "</details>"
+            } > "$body_file"
+
+            existing_id="$(gh api "repos/${{ github.repository }}/issues/$pr_number/comments" --paginate \
+              --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | tail -n1)"
+
+            if [ -n "$existing_id" ]; then
+              gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$existing_id" -f body=@"$body_file" > /dev/null
+            else
+              gh api -X POST "repos/${{ github.repository }}/issues/$pr_number/comments" -f body=@"$body_file" > /dev/null
+            fi
             exit 0
           fi
 

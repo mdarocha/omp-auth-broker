@@ -13,13 +13,13 @@ Anyone who can reach the service can use the UI, `/api/*`, and `/v1/*`. Cross-si
 
 ## Web UI and vault
 
-Open the server root to manage the shared vault. The UI lists accounts, starts provider OAuth login, removes credentials, and shows account status and expiry. OAuth login is available only through the UI's `/api/login`, never through `/v1`.
+Open the server root to manage the shared vault. The UI lists accounts, starts provider OAuth login, removes credentials, and shows account status and expiry. The Usage section reports per-credential provider limits and per-client request and token totals for the last 30 days.
 
-![Accounts page listing the shared OAuth credentials and their status](docs/screenshots/accounts.png)
+![The auth broker UI showing connected accounts and usage](docs/screenshots/overview.png)
 
-The Usage section reports per-credential provider limits and per-client request and token totals for the last 30 days.
+Add provider opens a picker listing every registered OAuth provider. OAuth login is available only through the UI's `/api/login`, never through `/v1`.
 
-![Usage section showing per-credential provider limits and per-client request totals](docs/screenshots/usage.png)
+![The Add provider picker listing the available OAuth providers](docs/screenshots/add-provider.png)
 
 The vault is omp's own credential database at `~/.omp/agent/agent.db`. `/v1/*` is transparently proxied to an in-process upstream broker.
 
@@ -73,7 +73,7 @@ nix flake check --no-pure-eval
 devenv test
 ```
 
-`nix flake check --no-pure-eval` builds and runs the full browser e2e suite inside the Nix sandbox (`checks.e2e`) — no host network, no ambient toolchain. `nix build .#screenshots` runs only the screenshot capture in that same sandbox and writes `accounts.png`/`usage.png` to `result/`; CI copies them back into `docs/screenshots`. Both commands exercise the identical hermetic environment locally and in CI.
+`nix flake check --no-pure-eval` builds and runs the full browser e2e suite inside the Nix sandbox (`checks.e2e`) — no host network, no ambient toolchain. `nix build .#screenshots` runs only the screenshot capture in that same sandbox and writes `overview.png`/`add-provider.png` to `result/`; CI copies them back into `docs/screenshots`. Both commands exercise the identical hermetic environment locally and in CI.
 
 The Nix dependency closure is derived from `bun.lock` automatically. There is no hash to regenerate when dependencies change. This uses import-from-derivation (IFD), so IFD must be allowed.
 

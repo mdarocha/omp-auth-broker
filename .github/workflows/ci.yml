@@ -73,7 +73,7 @@ jobs:
               git push --force origin "HEAD:refs/heads/$preview_branch"
             fi
             commit_sha="$(git rev-parse HEAD)"
-            raw_base="https://raw.githubusercontent.com/${{ github.repository }}/$commit_sha"
+            raw_base="https://github.com/${{ github.repository }}/blob/$commit_sha"
 
             body_file="$(mktemp)"
             {
@@ -87,11 +87,11 @@ jobs:
               echo
               echo "**overview.png**"
               echo
-              echo "![overview]($raw_base/overview.png)"
+              echo "![overview]($raw_base/overview.png?raw=true)"
               echo
               echo "**add-provider.png**"
               echo
-              echo "![add-provider]($raw_base/add-provider.png)"
+              echo "![add-provider]($raw_base/add-provider.png?raw=true)"
               echo
               echo "</details>"
             } > "$body_file"

@@ -99,3 +99,5 @@ services.omp-auth-broker = {
 ```
 
 `settings` is rendered to a JSON file and passed to `serve --settings`; it is freeform, so keys beyond `port` and `hostname` pass through. `settings.port` defaults to `8765` and `settings.hostname` defaults to `null`. `dataDir` defaults to `/var/lib/omp-auth-broker` and sets `PI_CONFIG_DIR`. The service always binds to `127.0.0.1` and never opens a firewall. It runs as a hardened systemd `DynamicUser`.
+
+For a full walkthrough — provisioning the host, configuring Tailscale with a scoped ACL policy, exposing the broker as a Tailscale Service, and pointing `omp` installs elsewhere at it — see [`docs/getting-started.md`](docs/getting-started.md).

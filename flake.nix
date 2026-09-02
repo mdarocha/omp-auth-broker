@@ -83,6 +83,32 @@
               }
             ];
           };
+
+          mkE2eDerivation =
+            {
+              pname,
+              testCommand,
+              installPhase,
+            }:
+            pkgs.stdenv.mkDerivation {
+              inherit pname installPhase;
+              version = "0.1.0";
+              src = ./.;
+              nativeBuildInputs = [
+                pkgs.bun
+                pkgs.chromium
+              ];
+              buildPhase = ''
+                export HOME=$TMPDIR
+                export CHROME_BIN=${pkgs.chromium}/bin/chromium
+                export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+                export PLAYWRIGHT_BROWSERS_PATH=${pkgs.chromium}
+                export FONTCONFIG_FILE=${pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; }}
+                mkdir node_modules
+                cp -R ${e2eNodeModules}/node_modules/. node_modules/
+                (cd packages/e2e && ${testCommand})
+              '';
+            };
         in
         {
           devenv.shells.default = {
@@ -110,26 +136,20 @@
             meta.mainProgram = "omp-auth-broker";
           };
 
-          checks.e2e = pkgs.stdenv.mkDerivation {
+          checks.e2e = mkE2eDerivation {
             pname = "omp-auth-broker-e2e";
-            version = "0.1.0";
-            src = ./.;
-            nativeBuildInputs = [
-              pkgs.bun
-              pkgs.chromium
-            ];
-            buildPhase = ''
-              export HOME=$TMPDIR
-              export CHROME_BIN=${pkgs.chromium}/bin/chromium
-              export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-              export PLAYWRIGHT_BROWSERS_PATH=${pkgs.chromium}
-              export FONTCONFIG_FILE=${pkgs.makeFontsConf { fontDirectories = [ pkgs.dejavu_fonts ]; }}
-              mkdir node_modules
-              cp -R ${e2eNodeModules}/node_modules/. node_modules/
-              (cd packages/e2e && bun test --max-concurrency=1 --timeout=180000)
-            '';
+            testCommand = "bun test --max-concurrency=1 --timeout=180000";
             installPhase = ''
               touch $out
+            '';
+          };
+
+          packages.screenshots = mkE2eDerivation {
+            pname = "omp-auth-broker-screenshots";
+            testCommand = "bun test --timeout=180000 src/screenshots.e2e.test.ts";
+            installPhase = ''
+              mkdir -p $out
+              cp docs/screenshots/*.png $out/
             '';
           };
         };

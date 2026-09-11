@@ -36,7 +36,7 @@
       "name": "@omp-auth-broker/ui",
       "dependencies": {
         "@lobehub/icons-static-svg": "1.94.0",
-        "lucide-static": "1.39.0",
+        "lucide-static": "1.41.0",
         "preact": "10.29.8",
         "zod": "4.5.4",
       },
@@ -175,7 +175,7 @@
 
     "ky": ["ky@2.1.0", "", {}, "sha512-nIKwelw+7qVqKOlX4Eht6GXfEXlDHcdIjyLWV3s119kYt5s+70ayTnYS+0fRNmtgGRRAfqdeWQbh8YizqkS0ng=="],
 
-    "lucide-static": ["lucide-static@1.39.0", "", {}, "sha512-TaDiwNFZ78c+HrZRNWHoR+LVkIOL8ebYOyNYvytdPkaLWE29G9umks6p1aeCE8kSEIoifnlNLPxMvvE3zqT/YA=="],
+    "lucide-static": ["lucide-static@1.41.0", "", {}, "sha512-39fX7SH+Rwis0oUmLLOipOoFSiJll9yi2DyEGDaE7Sp0qQAEhEfMQ2scQNdWKeGVENGv1uXc5ZeZqBWsuhQSFg=="],
 
     "oxlint": ["oxlint@1.80.0", "", { "optionalDependencies": { "@oxlint/binding-android-arm-eabi": "1.80.0", "@oxlint/binding-android-arm64": "1.80.0", "@oxlint/binding-darwin-arm64": "1.80.0", "@oxlint/binding-darwin-x64": "1.80.0", "@oxlint/binding-freebsd-x64": "1.80.0", "@oxlint/binding-linux-arm-gnueabihf": "1.80.0", "@oxlint/binding-linux-arm-musleabihf": "1.80.0", "@oxlint/binding-linux-arm64-gnu": "1.80.0", "@oxlint/binding-linux-arm64-musl": "1.80.0", "@oxlint/binding-linux-ppc64-gnu": "1.80.0", "@oxlint/binding-linux-riscv64-gnu": "1.80.0", "@oxlint/binding-linux-riscv64-musl": "1.80.0", "@oxlint/binding-linux-s390x-gnu": "1.80.0", "@oxlint/binding-linux-x64-gnu": "1.80.0", "@oxlint/binding-linux-x64-musl": "1.80.0", "@oxlint/binding-openharmony-arm64": "1.80.0", "@oxlint/binding-win32-arm64-msvc": "1.80.0", "@oxlint/binding-win32-ia32-msvc": "1.80.0", "@oxlint/binding-win32-x64-msvc": "1.80.0" }, "peerDependencies": { "oxlint-tsgolint": ">=7.0.2001", "vite-plus": "*" }, "optionalPeers": ["oxlint-tsgolint", "vite-plus"], "bin": { "oxlint": "bin/oxlint" } }, "sha512-5nTiSps4qdbCWLbxzuO00alHkEO2exR9YMN/ig6QXWrLsYSG0KaObOAM+l6oU2LcKPWoSAGYbkZIGEu1ViiWKA=="],
 

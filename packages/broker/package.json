@@ -10,7 +10,7 @@
     "omp-auth-broker": "./src/main.ts"
   },
   "dependencies": {
-    "@oh-my-pi/pi-ai": "18.0.11",
+    "@oh-my-pi/pi-ai": "18.1.10",
     "@oh-my-pi/pi-utils": "18.0.11"
   }
 }

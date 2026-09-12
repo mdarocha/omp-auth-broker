@@ -15,7 +15,7 @@
     "test": "bun run --filter '@omp-auth-broker/e2e' test"
   },
   "devDependencies": {
-    "@types/bun": "1.4.0",
+    "@types/bun": "1.4.2",
     "typescript": "7.0.2",
     "prettier": "3.9.6",
     "oxlint": "1.80.0",

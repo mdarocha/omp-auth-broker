@@ -10,7 +10,7 @@
   "devDependencies": {
     "@oh-my-pi/pi-ai": "18.1.13",
     "@oh-my-pi/pi-utils": "18.1.13",
-    "@playwright/test": "1.62.1",
+    "@playwright/test": "1.63.0",
     "ky": "2.1.0",
     "zod": "4.5.4"
   }

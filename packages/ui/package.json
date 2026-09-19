@@ -6,7 +6,7 @@
     "@lobehub/icons-static-svg": "1.95.0",
     "lucide-static": "1.45.0",
     "preact": "10.29.8",
-    "zod": "4.5.4"
+    "zod": "4.6.2"
   },
   "scripts": {
     "check": "tsc --noEmit --project tsconfig.json",

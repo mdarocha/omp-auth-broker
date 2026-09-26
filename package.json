@@ -19,6 +19,6 @@
     "typescript": "7.0.2",
     "prettier": "3.9.6",
     "oxlint": "1.82.0",
-    "oxlint-tsgolint": "7.0.2001"
+    "oxlint-tsgolint": "7.0.2002"
   }
 }

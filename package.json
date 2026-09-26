@@ -17,7 +17,7 @@
   "devDependencies": {
     "@types/bun": "1.4.2",
     "typescript": "7.0.2",
-    "prettier": "3.9.6",
+    "prettier": "3.9.9",
     "oxlint": "1.82.0",
     "oxlint-tsgolint": "7.0.2002"
   }

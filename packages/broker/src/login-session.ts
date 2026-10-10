@@ -128,14 +128,14 @@ export function buildLoginController(options: LoginControllerOptions) {
             return PASTE_CODE_LOGIN_PROVIDERS.has(provider) ? waitForCode(session) : "";
         },
         ...(PASTE_CODE_LOGIN_PROVIDERS.has(provider) ? { onManualCodeInput: async () => waitForCode(session) } : {}),
-    } satisfies Parameters<AuthStorage["login"]>[1];
+    } satisfies Parameters<AuthStorage["oauth"]["login"]>[1];
 }
 
 export interface LoginFlowOptions {
     storage: AuthStorage;
     provider: OAuthProviderId;
     session: LoginSession;
-    controller: Parameters<AuthStorage["login"]>[1];
+    controller: Parameters<AuthStorage["oauth"]["login"]>[1];
     completeStart: () => void;
     failStart: (error: unknown) => void;
 }
@@ -144,7 +144,7 @@ export function runLoginFlow(options: LoginFlowOptions): void {
     const { storage, provider, session, controller, completeStart, failStart } = options;
     let loginPromise: Promise<unknown>;
     try {
-        loginPromise = Promise.resolve(storage.login(provider, controller));
+        loginPromise = Promise.resolve(storage.oauth.login(provider, controller));
     } catch (error) {
         loginPromise = Promise.reject(error);
     }

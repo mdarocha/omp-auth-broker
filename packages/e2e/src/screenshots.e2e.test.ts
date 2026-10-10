@@ -79,7 +79,7 @@ function buildSeedClientUsageReports(): SeedClientUsageReport[] {
 }
 
 // `mock-provider` has no real quota endpoint; it only implements login (see mock-provider.ts).
-// `AuthStorage.fetchUsageReports` can be overridden entirely, so this seeds two mock accounts' limits directly.
+// The `usageProviderResolver` option replaces the usage provider, so this seeds two mock accounts' limits directly.
 function buildSeedUsageReports(): UsageReport[] {
     const now = Date.now();
     return [
@@ -242,7 +242,18 @@ test("refreshes README screenshots from the live UI", async () => {
 
     try {
         app = await startTestApp({
-            authStorageOptions: { fetchUsageReports: async () => buildSeedUsageReports() },
+            authStorageOptions: {
+                usageProviderResolver: (provider) =>
+                    provider === "mock-provider"
+                        ? {
+                              id: provider,
+                              fetchUsage: async ({ credential }) =>
+                                  buildSeedUsageReports().find(
+                                      (report) => report.metadata?.email === credential.email,
+                                  ) ?? null,
+                          }
+                        : undefined,
+            },
         });
         await seedClientUsage(app.baseUrl);
 

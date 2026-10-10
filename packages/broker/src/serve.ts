@@ -62,7 +62,7 @@ async function openAuthStorage(authStorageOptions?: AuthStorageOptions): Promise
             cacheMcpRefreshMaterial(entry.provider, entry.credential);
         }
     }
-    // `authStorageOptions` can override any of these defaults (e.g. the e2e screenshot suite overrides `fetchUsageReports`).
+    // `authStorageOptions` can override any of these defaults (e.g. the e2e screenshot suite overrides `usageProviderResolver`).
     // The mcp_oauth:* refresh override must stay the default: the headless broker never loads the MCP manager that would otherwise provide it.
     const storage = new AuthStorage(store, {
         refreshOAuthCredential: (...args) => {
@@ -236,7 +236,7 @@ async function watchForShutdown(close: () => Promise<void>): Promise<never> {
 }
 
 // `authStorageOptions` is not part of `BrokerSettings` and is never read from `--settings=<path>`.
-// It exists so embedders (e.g. the e2e screenshot suite) can seed `AuthStorage` hooks like `fetchUsageReports`.
+// It exists so embedders (e.g. the e2e screenshot suite) can seed `AuthStorage` hooks like `usageProviderResolver`.
 export async function startServe(
     settings: BrokerSettings,
     authStorageOptions?: AuthStorageOptions,

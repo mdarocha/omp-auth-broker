@@ -193,7 +193,7 @@ async function logoutRoute(request: Request, context: ControlContext): Promise<R
         return provider;
     }
 
-    context.store.deleteAuthCredentialsForProvider(provider, "removed via web ui");
+    await context.store.deleteAuthCredentials(provider, "removed via web ui");
     await context.storage.reload();
     return json({ ok: true });
 }

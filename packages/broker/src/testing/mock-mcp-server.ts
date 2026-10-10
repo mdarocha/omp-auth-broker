@@ -60,7 +60,7 @@ export async function seedVaultCredential(provider: string, credential: McpStore
     const storage = new AuthStorage(store);
     try {
         await storage.reload();
-        await storage.set(provider, credential);
+        await storage.credentials.set(provider, credential);
     } finally {
         storage.close();
         store.close();

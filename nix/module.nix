@@ -16,9 +16,6 @@ let
     ;
   noAuthenticationWarning = "The broker provides no application authentication; expose it only through trusted network controls.";
   settingsFormat = pkgs.formats.json { };
-  settingsFile = settingsFormat.generate "omp-auth-broker-settings.json" (
-    lib.removeAttrs cfg.settings (lib.optional (cfg.settings.hostname == null) "hostname")
-  );
   stateDirName = lib.removePrefix "/var/lib/" cfg.dataDir;
 in
 {
@@ -83,7 +80,9 @@ in
           (lib.getExe cfg.package)
           "serve"
           "--settings"
-          settingsFile
+          (settingsFormat.generate "omp-auth-broker-settings.json" (
+            lib.removeAttrs cfg.settings (lib.optional (cfg.settings.hostname == null) "hostname")
+          ))
         ];
         DynamicUser = true;
         StateDirectory = stateDirName;

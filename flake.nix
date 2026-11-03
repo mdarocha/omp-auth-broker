@@ -38,19 +38,21 @@
               manifests,
             }:
             let
-              packageLockFile =
-                pkgs.runCommand "${pname}-package-lock.json"
-                  {
-                    nativeBuildInputs = [ pkgs.bun ];
-                  }
-                  ''
-                    bun ${./nix/bun-lock-to-package-lock.ts} ${./bun.lock} ${./.} ${pkgs.lib.escapeShellArg (builtins.toJSON manifests)} > $out
-                  '';
-              packageLock = builtins.fromJSON (builtins.readFile packageLockFile);
-              package = packageLock.packages."";
+              packageLock = builtins.fromJSON (
+                builtins.readFile (
+                  pkgs.runCommand "${pname}-package-lock.json"
+                    {
+                      nativeBuildInputs = [ pkgs.bun ];
+                    }
+                    ''
+                      bun ${./nix/bun-lock-to-package-lock.ts} ${./bun.lock} ${./.} ${pkgs.lib.escapeShellArg (builtins.toJSON manifests)} > $out
+                    ''
+                )
+              );
             in
             pkgs.importNpmLock.buildNodeModules {
-              inherit package packageLock;
+              package = packageLock.packages."";
+              inherit packageLock;
               nodejs = pkgs.nodejs;
               derivationArgs = {
                 inherit pname;
@@ -68,11 +70,6 @@
               dev = false;
             }
           ];
-
-          nodeModules = mkNodeModules {
-            pname = "omp-auth-broker-node-modules";
-            manifests = runtimeManifests;
-          };
 
           e2eNodeModules = mkNodeModules {
             pname = "omp-auth-broker-e2e-node-modules";
@@ -108,7 +105,6 @@
             '';
           };
 
-          buildCommit = self.shortRev or (builtins.substring 0 7 (self.dirtyShortRev or "unknown"));
         in
         {
           devenv.shells.default = {
@@ -125,9 +121,16 @@
             buildPhase = ''
               export HOME=$TMPDIR
               mkdir node_modules
-              cp -R ${nodeModules}/node_modules/. node_modules/
+              cp -R ${
+                mkNodeModules {
+                  pname = "omp-auth-broker-node-modules";
+                  manifests = runtimeManifests;
+                }
+              }/node_modules/. node_modules/
               bun build ./packages/broker/src/main.ts --compile --minify \
-                --define process.env.OMP_AUTH_BROKER_COMMIT="'${buildCommit}'" \
+                --define process.env.OMP_AUTH_BROKER_COMMIT="'${
+                  self.shortRev or (builtins.substring 0 7 (self.dirtyShortRev or "unknown"))
+                }'" \
                 --outfile omp-auth-broker
             '';
             installPhase = ''

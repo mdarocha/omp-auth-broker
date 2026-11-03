@@ -128,7 +128,9 @@
                 }
               }/node_modules/. node_modules/
               bun build ./packages/broker/src/main.ts --compile --minify \
-                --define process.env.OMP_AUTH_BROKER_COMMIT="'${self.shortRev or (builtins.substring 0 7 (self.dirtyShortRev or "unknown"))}'" \
+                --define process.env.OMP_AUTH_BROKER_COMMIT="'${
+                  self.shortRev or (builtins.substring 0 7 (self.dirtyShortRev or "unknown"))
+                }'" \
                 --outfile omp-auth-broker
             '';
             installPhase = ''

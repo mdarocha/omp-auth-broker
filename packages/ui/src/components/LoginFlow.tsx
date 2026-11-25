@@ -35,6 +35,10 @@ export function LoginFlow() {
                     {login.needsCode && (
                         <form className="code-form" onSubmit={onSubmitCode}>
                             <label htmlFor="authorization-code">Authorization code</label>
+                            <p className="notice">
+                                The authorization redirect cannot reach this broker. After authorizing, copy the code or
+                                the full redirect URL and paste it here.
+                            </p>
                             <div className="code-form__controls">
                                 <input
                                     id="authorization-code"

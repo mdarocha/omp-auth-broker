@@ -96,6 +96,8 @@ in
           "AF_INET"
           "AF_INET6"
           "AF_UNIX"
+          # getifaddrs (os.networkInterfaces) reads the interface list over netlink; OAuth callback servers call it before binding.
+          "AF_NETLINK"
         ];
       };
     };

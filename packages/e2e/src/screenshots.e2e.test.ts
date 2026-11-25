@@ -298,7 +298,12 @@ test("refreshes README screenshots from the live UI", async () => {
         let mockProviderButton = await openProviderPicker(page, addProvider);
         await mkdir(SCREENSHOTS_DIR, { recursive: true });
         await page.evaluate(normalizeVolatileTimestamps);
-        await page.screenshot({ path: resolve(SCREENSHOTS_DIR, "add-provider.png"), fullPage: true });
+        // `animations: "disabled"` settles the 160ms button transitions; otherwise the capture races them and the PNG differs per run.
+        await page.screenshot({
+            animations: "disabled",
+            fullPage: true,
+            path: resolve(SCREENSHOTS_DIR, "add-provider.png"),
+        });
 
         // Connect a couple of mock accounts so the second screenshot shows a filled-out app, not an empty vault.
         for (let account = 1; account <= MOCK_ACCOUNT_COUNT; account += 1) {
@@ -355,7 +360,11 @@ test("refreshes README screenshots from the live UI", async () => {
 
         await usageHeading.scrollIntoViewIfNeeded();
         await page.evaluate(normalizeVolatileTimestamps);
-        await page.screenshot({ path: resolve(SCREENSHOTS_DIR, "overview.png"), fullPage: true });
+        await page.screenshot({
+            animations: "disabled",
+            fullPage: true,
+            path: resolve(SCREENSHOTS_DIR, "overview.png"),
+        });
     } finally {
         try {
             await page?.close();

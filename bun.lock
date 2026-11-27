@@ -35,7 +35,7 @@
     "packages/ui": {
       "name": "@omp-auth-broker/ui",
       "dependencies": {
-        "@lobehub/icons-static-svg": "1.95.1",
+        "@lobehub/icons-static-svg": "1.104.0",
         "lucide-static": "1.73.0",
         "preact": "11.0.1",
         "zod": "4.6.7",
@@ -43,7 +43,7 @@
     },
   },
   "packages": {
-    "@lobehub/icons-static-svg": ["@lobehub/icons-static-svg@1.95.1", "", {}, "sha512-Hw7EPPgVnC4NZLXBfTNJG6hyQgqECfUPC11VVXodPSr1aebKcFxDZlSpxhWwYNdCc6bhxps/x5TtXoPmfKH2ag=="],
+    "@lobehub/icons-static-svg": ["@lobehub/icons-static-svg@1.104.0", "", {}, "sha512-iIZ7qd77hIx9fsbLysXmFYHYKT+cLgSuQVb8/hOfGH06clDpcSo+u7RWcyiBeq9MAcUai+4qvCQXqVDdVe8g3Q=="],
 
     "@oh-my-pi/omptype": ["@oh-my-pi/omptype@18.14.0", "", {}, "sha512-29E9u1d1p8fxCnyP9m0mF/iCimYJEuP8isnZOL2S+ANQuPMTG5XaNoxnTNPIltrI/176y52AFanhixftUH/kFw=="],
 
